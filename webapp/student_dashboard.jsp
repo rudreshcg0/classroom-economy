@@ -1,0 +1,1 @@
+<html><body><h1>Student Wallet</h1><p>Welcome to your virtual economy!</p></body></html>
