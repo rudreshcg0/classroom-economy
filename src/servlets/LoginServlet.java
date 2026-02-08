@@ -3,12 +3,12 @@ package servlets;
 import java.io.IOException;
 import java.sql.*;
 import jakarta.servlet.*;
-import jakarta.servlet.annotation.WebServlet; // Added for easy URL mapping
+import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
 import utils.DBConnection;
 import models.User;
 
-@WebServlet("/login") // This maps the servlet to the /login URL
+@WebServlet("/login")
 public class LoginServlet extends HttpServlet {
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         String user = request.getParameter("username");
@@ -24,7 +24,7 @@ public class LoginServlet extends HttpServlet {
             ResultSet rs = pst.executeQuery();
 
             if (rs.next()) {
-                // 1. Create User object using the 4-argument constructor
+                // 1. Create User object
                 User loggedInUser = new User(
                     rs.getInt("user_id"),
                     rs.getString("username"),
@@ -36,16 +36,20 @@ public class LoginServlet extends HttpServlet {
                 HttpSession session = request.getSession();
                 session.setAttribute("user", loggedInUser);
 
-                // 3. Phase 2 Redirect Strategy: 
-                // We send them to SERVLETS (the "Kitchen") not JSPs (the "Table")
-                if (loggedInUser.getRole().equalsIgnoreCase("teacher")) {
+                // 3. Updated Redirect Logic for all roles
+                String role = loggedInUser.getRole().toLowerCase();
+
+                if (role.equals("teacher")) {
                     response.sendRedirect("teacherDashboard"); 
-                } else if (loggedInUser.getRole().equalsIgnoreCase("student")) {
+                } else if (role.equals("student")) {
                     response.sendRedirect("studentDashboard");
+                } else if (role.equals("super_admin")) {
+                    response.sendRedirect("adminDashboard");
                 } else {
-                    // Fallback for admins or undefined roles
+                    // If role is school_admin or something else we haven't built yet
                     response.sendRedirect("login.html?error=unauthorized");
                 }
+
             } else {
                 // Invalid credentials
                 response.sendRedirect("login.html?error=invalid");
