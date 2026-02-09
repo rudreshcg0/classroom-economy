@@ -11,47 +11,51 @@ import models.User;
 @WebServlet("/login")
 public class LoginServlet extends HttpServlet {
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        String user = request.getParameter("username");
-        String pass = request.getParameter("password");
+        String userParam = request.getParameter("username");
+        String passParam = request.getParameter("password");
 
         try (Connection conn = DBConnection.getConnection()) {
-            // Query to verify user and get their core details
-            String sql = "SELECT user_id, username, role, school_id FROM users WHERE username = ? AND password = ?";
+            // We fetch school_id and roll_no to build a complete User object
+            String sql = "SELECT user_id, username, role, school_id, roll_no FROM users WHERE username = ? AND password = ?";
             PreparedStatement pst = conn.prepareStatement(sql);
-            pst.setString(1, user);
-            pst.setString(2, pass);
+            pst.setString(1, userParam);
+            pst.setString(2, passParam);
 
             ResultSet rs = pst.executeQuery();
 
             if (rs.next()) {
-                // 1. Create User object
+                // FIX: Retrieve school_id as an Object to handle NULL safely
+                Object schoolIdObj = rs.getObject("school_id");
+                Integer schoolId = (schoolIdObj != null) ? (Integer) schoolIdObj : null;
+
                 User loggedInUser = new User(
                     rs.getInt("user_id"),
                     rs.getString("username"),
                     rs.getString("role"),
-                    rs.getInt("school_id")
+                    schoolId,
+                    0.0, // Balance is usually fetched separately in dashboards
+                    rs.getString("roll_no")
                 );
                 
-                // 2. Start a Session and save the User object
                 HttpSession session = request.getSession();
                 session.setAttribute("user", loggedInUser);
 
-                // 3. Updated Redirect Logic for all roles
                 String role = loggedInUser.getRole().toLowerCase();
 
-                if (role.equals("teacher")) {
+                // REDIRECT LOGIC
+                if (role.equals("platform_root")) {
+                    response.sendRedirect("super_dashboard.jsp"); 
+                } else if (role.equals("super_admin") || role.equals("school_admin")) {
+                    response.sendRedirect("adminDashboard");
+                } else if (role.equals("teacher")) {
                     response.sendRedirect("teacherDashboard"); 
                 } else if (role.equals("student")) {
                     response.sendRedirect("studentDashboard");
-                } else if (role.equals("super_admin")) {
-                    response.sendRedirect("adminDashboard");
                 } else {
-                    // If role is school_admin or something else we haven't built yet
                     response.sendRedirect("login.html?error=unauthorized");
                 }
 
             } else {
-                // Invalid credentials
                 response.sendRedirect("login.html?error=invalid");
             }
         } catch (SQLException e) {

@@ -4,35 +4,27 @@ public class User {
     private int id;
     private String username;
     private String role;
-    private int schoolId;
+    private Integer schoolId; // Allows NULL for root
     private double balance;
-    private String rollNo; // New field for Phase 2
+    private String rollNo;
 
-    // Main Constructor (Full data)
-    public User(int id, String username, String role, int schoolId, double balance, String rollNo) {
+    public User(int id, String username, String role, Integer schoolId, double balance, String rollNo) {
         this.id = id;
         this.username = username;
         this.role = role;
         this.schoolId = schoolId;
         this.balance = balance;
-        this.rollNo = (rollNo == null) ? "" : rollNo; // Handle nulls for teachers
+        this.rollNo = (rollNo == null) ? "" : rollNo;
     }
 
-    // Constructor for Login (Balance defaults to 0, RollNo to empty)
-    public User(int id, String username, String role, int schoolId) {
+    public User(int id, String username, String role, Integer schoolId) {
         this(id, username, role, schoolId, 0.0, "");
     }
 
-    // Constructor for Dashboard (Without RollNo)
-    public User(int id, String username, String role, int schoolId, double balance) {
-        this(id, username, role, schoolId, balance, "");
-    }
-
-    // Getters
     public int getId() { return id; }
     public String getUsername() { return username; }
     public String getRole() { return role; }
-    public int getSchoolId() { return schoolId; }
+    public Integer getSchoolId() { return schoolId; } 
     public double getBalance() { return balance; }
     public String getRollNo() { return rollNo; }
 }
