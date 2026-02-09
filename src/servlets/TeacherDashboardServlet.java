@@ -15,17 +15,17 @@ public class TeacherDashboardServlet extends HttpServlet {
         HttpSession session = request.getSession();
         User teacher = (User) session.getAttribute("user");
 
-        // Security check: If not logged in or not a teacher, kick back to login
         if (teacher == null || !teacher.getRole().equalsIgnoreCase("teacher")) {
             response.sendRedirect("login.html");
             return;
         }
 
         List<User> studentList = new ArrayList<>();
+        List<Map<String, Object>> classesList = new ArrayList<>();
         double currentAllowance = 0.0;
 
         try (Connection conn = DBConnection.getConnection()) {
-            // 1. Get the Teacher's current budget from the allowance table
+            // 1. Get Teacher's Allowance
             String sqlAllowance = "SELECT current_balance FROM teacher_allowance WHERE teacher_id = ?";
             PreparedStatement pst1 = conn.prepareStatement(sqlAllowance);
             pst1.setInt(1, teacher.getId());
@@ -34,28 +34,44 @@ public class TeacherDashboardServlet extends HttpServlet {
                 currentAllowance = rs1.getDouble("current_balance");
             }
 
-            // 2. Get all Students in this teacher's school + their wallet balances
-            // We JOIN the users table with the wallets table
-            String sqlStudents = "SELECT u.user_id, u.username, w.balance FROM users u " +
+            // 2. Get Classes assigned to this teacher
+            String sqlClasses = "SELECT class_id, class_name, pay_per_session FROM classes WHERE teacher_id = ?";
+            PreparedStatement pstClasses = conn.prepareStatement(sqlClasses);
+            pstClasses.setInt(1, teacher.getId());
+            ResultSet rsClasses = pstClasses.executeQuery();
+            while (rsClasses.next()) {
+                Map<String, Object> classMap = new HashMap<>();
+                classMap.put("id", rsClasses.getInt("class_id"));
+                classMap.put("name", rsClasses.getString("class_name"));
+                classMap.put("pay", rsClasses.getDouble("pay_per_session"));
+                classesList.add(classMap);
+            }
+
+            // 3. Get Students + Balances + Roll Numbers (Sorted by Roll No)
+            String sqlStudents = "SELECT u.user_id, u.username, u.roll_no, w.balance FROM users u " +
                                  "JOIN wallets w ON u.user_id = w.student_id " +
-                                 "WHERE u.school_id = ? AND u.role = 'student'";
+                                 "WHERE u.school_id = ? AND u.role = 'student' " +
+                                 "ORDER BY u.roll_no ASC"; 
             PreparedStatement pst2 = conn.prepareStatement(sqlStudents);
             pst2.setInt(1, teacher.getSchoolId());
             ResultSet rs2 = pst2.executeQuery();
 
             while (rs2.next()) {
+                // Using the updated constructor: (id, username, role, schoolId, balance, rollNo)
                 studentList.add(new User(
                     rs2.getInt("user_id"),
                     rs2.getString("username"),
                     "student",
                     teacher.getSchoolId(),
-                    rs2.getDouble("balance")
+                    rs2.getDouble("balance"),
+                    rs2.getString("roll_no")
                 ));
             }
 
-            // 3. Attach the data to the request and forward to the JSP "View"
             request.setAttribute("allowance", currentAllowance);
+            request.setAttribute("classes", classesList);
             request.setAttribute("students", studentList);
+            
             request.getRequestDispatcher("teacher_dashboard.jsp").forward(request, response);
 
         } catch (SQLException e) {

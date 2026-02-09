@@ -22,3 +22,11 @@ SELECT user_id, 100.00, school_id
 FROM users 
 WHERE role = 'student' AND school_id = 1
 ON CONFLICT (student_id) DO NOTHING;
+
+-- Add the column (Allowing NULL for teachers/admins)
+ALTER TABLE users ADD COLUMN roll_no VARCHAR(20) DEFAULT NULL;
+
+-- Update your unique constraint
+-- This ensures no two students in the same school have the same roll number,
+-- but doesn't affect teachers since they have NULL.
+ALTER TABLE users ADD CONSTRAINT unique_roll_per_school UNIQUE (roll_no, school_id);
