@@ -1,32 +1,25 @@
--- 1. Insert the Teacher Allowance (Teacher ID is 3)
--- We must include school_id because your schema requires it
+-- 1. Create School
+INSERT INTO schools (school_name) VALUES ('MMCC_Deccan');
+
+-- 2. Create Users (Admins, Teachers, Students)
+-- NOTE: We use your new naming format
+INSERT INTO users (username, password, role, school_id, roll_no) VALUES 
+('admin', 'admin123', 'super_admin', 1, NULL),
+('profe', 'atlantis', 'teacher', 1, NULL),
+('rudresh.101@mmcc.vces', 'pass123', 'student', 1, '101'),
+('anand.102@mmcc.vces', 'pass123', 'student', 1, '102');
+
+-- 3. Setup Teacher Allowance (For Profe - ID 2)
+-- Note: Check if Profe is ID 2 in your friend's DB, otherwise adjust IDs
 INSERT INTO teacher_allowance (teacher_id, monthly_budget, current_balance, school_id)
-VALUES (3, 500.00, 500.00, 1)
-ON CONFLICT (teacher_id) 
-DO UPDATE SET 
-    monthly_budget = 500.00,
-    current_balance = 500.00,
-    school_id = 1;
+VALUES (2, 500.00, 500.00, 1);
 
--- 2. Insert Test Students (Linked to School 1)
-INSERT INTO users (username, password, role, school_id) 
-VALUES 
-('student_kyle', 'pass123', 'student', 1),
-('student_stan', 'pass123', 'student', 1)
-ON CONFLICT (username) DO NOTHING;
+-- 4. Create Classes for the Teacher
+INSERT INTO classes (class_name, school_id, teacher_id, pay_per_session)
+VALUES ('Java Programming - MMCC', 1, 2, 20.00);
 
--- 3. Create Wallets for these students
--- We pull the user_id and school_id directly from the users table
+-- 5. Initialize Wallets for existing Students
 INSERT INTO wallets (student_id, balance, school_id)
 SELECT user_id, 100.00, school_id 
 FROM users 
-WHERE role = 'student' AND school_id = 1
-ON CONFLICT (student_id) DO NOTHING;
-
--- Add the column (Allowing NULL for teachers/admins)
-ALTER TABLE users ADD COLUMN roll_no VARCHAR(20) DEFAULT NULL;
-
--- Update your unique constraint
--- This ensures no two students in the same school have the same roll number,
--- but doesn't affect teachers since they have NULL.
-ALTER TABLE users ADD CONSTRAINT unique_roll_per_school UNIQUE (roll_no, school_id);
+WHERE role = 'student';
