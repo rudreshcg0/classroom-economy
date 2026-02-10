@@ -47,22 +47,44 @@ public class AdminActionServlet extends HttpServlet {
             else if ("assignTeacher".equals(action)) {
                 int classId = Integer.parseInt(request.getParameter("classId"));
                 int teacherId = Integer.parseInt(request.getParameter("teacherId"));
-                String sql = "UPDATE classes SET teacher_id = ? WHERE class_id = ? AND school_id = ?";
+                
+                // Logic: If teacherId is 0, we set to NULL (Unlink). Otherwise, we Link.
+                String sql;
+                if (teacherId == 0) {
+                    sql = "UPDATE classes SET teacher_id = NULL WHERE class_id = ? AND school_id = ?";
+                } else {
+                    sql = "UPDATE classes SET teacher_id = ? WHERE class_id = ? AND school_id = ?";
+                }
+                
                 try (PreparedStatement pst = conn.prepareStatement(sql)) {
-                    pst.setInt(1, teacherId);
-                    pst.setInt(2, classId);
-                    pst.setInt(3, admin.getSchoolId());
+                    if (teacherId == 0) {
+                        pst.setInt(1, classId);
+                        pst.setInt(2, admin.getSchoolId());
+                    } else {
+                        pst.setInt(1, teacherId);
+                        pst.setInt(2, classId);
+                        pst.setInt(3, admin.getSchoolId());
+                    }
                     pst.executeUpdate();
                 }
             } 
             else if ("deleteUser".equals(action)) {
-                int targetId = Integer.parseInt(request.getParameter("id"));
-                // Cannot delete self, only users in same school
-                String sql = "DELETE FROM users WHERE user_id = ? AND school_id = ? AND role != 'school_admin'";
-                try (PreparedStatement pst = conn.prepareStatement(sql)) {
-                    pst.setInt(1, targetId);
-                    pst.setInt(2, admin.getSchoolId());
-                    pst.executeUpdate();
+                // Handling both single and bulk deletes
+                String[] ids = request.getParameterValues("id"); 
+                if (ids != null && ids.length > 0) {
+                    String sql = "DELETE FROM users WHERE user_id = ? AND school_id = ? AND role != 'school_admin'";
+                    try (PreparedStatement pst = conn.prepareStatement(sql)) {
+                        for (String idStr : ids) {
+                            try {
+                                pst.setInt(1, Integer.parseInt(idStr));
+                                pst.setInt(2, admin.getSchoolId());
+                                pst.addBatch();
+                            } catch (NumberFormatException e) {
+                                continue; // Skip non-numeric values
+                            }
+                        }
+                        pst.executeBatch();
+                    }
                 }
             } 
             else if ("deleteClass".equals(action)) {
@@ -74,8 +96,10 @@ public class AdminActionServlet extends HttpServlet {
                     pst.executeUpdate();
                 }
             }
-            // Redirect back to dashboard to see changes
-            response.sendRedirect("adminDashboard?success=1");
+            
+            // Redirect back to management view or ledger view based on current context
+            String redirectView = request.getParameter("view") != null ? request.getParameter("view") : "management";
+            response.sendRedirect("adminDashboard?view=" + redirectView + "&success=1");
             
         } catch (SQLException e) {
             e.printStackTrace();
