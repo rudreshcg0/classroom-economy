@@ -28,8 +28,8 @@ public class StudentDashboardServlet extends HttpServlet {
                 }
             }
 
-            // 2. Fetch Transaction History
-            List<Map<String, Object>> history = new ArrayList<>();
+            // 2. Fetch Transaction History (General Wallet Ledger)
+            List<Map<String, Object>> walletHistory = new ArrayList<>();
             String sqlH = "SELECT * FROM transactions WHERE sender_id = ? OR receiver_id = ? ORDER BY created_at DESC LIMIT 20";
             try (PreparedStatement pstH = conn.prepareStatement(sqlH)) {
                 pstH.setInt(1, student.getId()); pstH.setInt(2, student.getId());
@@ -40,12 +40,12 @@ public class StudentDashboardServlet extends HttpServlet {
                     m.put("desc", rsH.getString("description"));
                     m.put("date", rsH.getTimestamp("created_at").toString());
                     m.put("isCredit", rsH.getInt("receiver_id") == student.getId());
-                    history.add(m);
+                    walletHistory.add(m);
                 }
             }
-            request.setAttribute("history", history);
+            request.setAttribute("history", walletHistory);
 
-            // 3. Fetch Pending Requests (UPI style)
+            // 3. Fetch Pending Payment Requests (UPI Style incoming requests)
             List<Map<String, Object>> reqs = new ArrayList<>();
             String sqlQ = "SELECT r.request_id, r.amount, r.note, u.username FROM payment_requests r " +
                           "JOIN users u ON r.sender_id = u.user_id " +
@@ -64,7 +64,7 @@ public class StudentDashboardServlet extends HttpServlet {
             }
             request.setAttribute("pendingRequests", reqs);
 
-            // 4. Fetch Dynamic Marketplace Items
+            // 4. Fetch Active Marketplace Items for the School
             List<Map<String, Object>> shopItems = new ArrayList<>();
             String sqlShop = "SELECT * FROM marketplace_items WHERE school_id = ? AND (stock > 0 OR stock = -1) ORDER BY created_at DESC";
             try (PreparedStatement pstS = conn.prepareStatement(sqlShop)) {
@@ -82,10 +82,27 @@ public class StudentDashboardServlet extends HttpServlet {
             }
             request.setAttribute("availableItems", shopItems);
 
+            // 5. Fetch Student's Order History (Audit Logs for the Shop Panel)
+            List<Map<String, Object>> myOrders = new ArrayList<>();
+            String sqlO = "SELECT item_name, price, status, purchased_at FROM marketplace_orders WHERE student_id = ? ORDER BY purchased_at DESC";
+            try (PreparedStatement pstO = conn.prepareStatement(sqlO)) {
+                pstO.setInt(1, student.getId());
+                ResultSet rsO = pstO.executeQuery();
+                while(rsO.next()){
+                    Map<String, Object> o = new HashMap<>();
+                    o.put("item_name", rsO.getString("item_name"));
+                    o.put("price", rsO.getDouble("price"));
+                    o.put("status", rsO.getString("status"));
+                    o.put("date", rsO.getTimestamp("purchased_at"));
+                    myOrders.add(o);
+                }
+            }
+            request.setAttribute("myOrders", myOrders);
+
             request.getRequestDispatcher("student_dashboard.jsp").forward(request, response);
         } catch (Exception e) { 
             e.printStackTrace(); 
-            response.getWriter().println("Dashboard Error: " + e.getMessage()); 
+            response.sendError(500, "Critical Error Loading Student Dashboard: " + e.getMessage()); 
         }
     }
 }

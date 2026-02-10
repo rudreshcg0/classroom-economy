@@ -21,24 +21,18 @@ public class TeacherDashboardServlet extends HttpServlet {
             return;
         }
 
-        double currentAllowance = 0.0;
-        List<Map<String, Object>> classesList = new ArrayList<>();
-        List<MarketplaceItem> myItems = new ArrayList<>();
-        List<Map<String, Object>> pendingOrders = new ArrayList<>();
-
         try (Connection conn = DBConnection.getConnection()) {
-            
-            // 1. Get Teacher's current budget balance
+            // 1. Get Teacher's Reward Budget Balance
+            double currentAllowance = 0.0;
             String sqlAllowance = "SELECT current_balance FROM teacher_allowance WHERE teacher_id = ?";
             try (PreparedStatement pst1 = conn.prepareStatement(sqlAllowance)) {
                 pst1.setInt(1, teacher.getId());
                 ResultSet rs1 = pst1.executeQuery();
-                if (rs1.next()) {
-                    currentAllowance = rs1.getDouble("current_balance");
-                }
+                if (rs1.next()) currentAllowance = rs1.getDouble("current_balance");
             }
 
-            // 2. Get Classes assigned to this teacher
+            // 2. Get Classes Assigned to this Teacher (for Attendance tab)
+            List<Map<String, Object>> classesList = new ArrayList<>();
             String sqlClasses = "SELECT class_id, class_name, pay_per_session FROM classes WHERE teacher_id = ?";
             try (PreparedStatement pstClasses = conn.prepareStatement(sqlClasses)) {
                 pstClasses.setInt(1, teacher.getId());
@@ -52,7 +46,8 @@ public class TeacherDashboardServlet extends HttpServlet {
                 }
             }
 
-            // 3. Fetch Marketplace Items created by this teacher
+            // 3. Fetch Teacher's Own Marketplace Inventory
+            List<MarketplaceItem> myItems = new ArrayList<>();
             String sqlI = "SELECT * FROM marketplace_items WHERE teacher_id = ?";
             try (PreparedStatement pstI = conn.prepareStatement(sqlI)) {
                 pstI.setInt(1, teacher.getId());
@@ -68,7 +63,8 @@ public class TeacherDashboardServlet extends HttpServlet {
                 }
             }
 
-            // 4. Fetch Pending Orders for Bulk Approval
+            // 4. Fetch Pending Fulfillment Orders (Marketplace Management Tab)
+            List<Map<String, Object>> pendingOrders = new ArrayList<>();
             String sqlO = "SELECT o.order_id, o.item_name, o.purchased_at, u.username FROM marketplace_orders o " +
                           "JOIN users u ON o.student_id = u.user_id " +
                           "WHERE o.status = 'PENDING_TEACHER' AND u.school_id = ?";
@@ -85,17 +81,38 @@ public class TeacherDashboardServlet extends HttpServlet {
                 }
             }
 
-            // Set all data for JSP
+            // 5. Fetch Full School Audit History (COMPLETED or REJECTED statuses)
+            List<Map<String, Object>> fullAudit = new ArrayList<>();
+            String sqlAudit = "SELECT o.*, u.username FROM marketplace_orders o " +
+                              "JOIN users u ON o.student_id = u.user_id " +
+                              "WHERE u.school_id = ? AND o.status IN ('COMPLETED', 'REJECTED') " +
+                              "ORDER BY purchased_at DESC";
+            try (PreparedStatement pstA = conn.prepareStatement(sqlAudit)) {
+                pstA.setInt(1, teacher.getSchoolId());
+                ResultSet rsA = pstA.executeQuery();
+                while(rsA.next()){
+                    Map<String, Object> a = new HashMap<>();
+                    a.put("student", rsA.getString("username"));
+                    a.put("item", rsA.getString("item_name"));
+                    a.put("price", rsA.getDouble("price"));
+                    a.put("status", rsA.getString("status"));
+                    a.put("date", rsA.getTimestamp("purchased_at"));
+                    fullAudit.add(a);
+                }
+            }
+
+            // Set all data for JSP handling
             request.setAttribute("allowance", currentAllowance);
             request.setAttribute("classes", classesList);
             request.setAttribute("myItems", myItems);
             request.setAttribute("marketplaceOrders", pendingOrders);
+            request.setAttribute("fullAudit", fullAudit);
             
             request.getRequestDispatcher("teacher_dashboard.jsp").forward(request, response);
 
         } catch (SQLException e) {
             e.printStackTrace();
-            response.getWriter().println("Teacher Dashboard Data Error: " + e.getMessage());
+            response.sendError(500, "Internal Server Error during Teacher Dashboard data retrieval.");
         }
     }
 }
