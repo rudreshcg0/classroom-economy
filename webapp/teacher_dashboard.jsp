@@ -1,6 +1,5 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
-<%@ page import="java.util.*" %>
-<%@ page import="models.User" %>
+<%@ page import="java.util.*, models.User" %>
 <!DOCTYPE html>
 <html>
 <head>
@@ -29,12 +28,6 @@
 <div class="main-content">
     <h1>Dashboard Overview</h1>
 
-    <% if(request.getParameter("success") != null) { %>
-        <div style="background: #c6f6d5; color: #2f855a; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-            ✅ Action processed successfully!
-        </div>
-    <% } %>
-
     <div class="balance-box">
         <small>Current Reward Budget</small>
         <h2 style="margin: 5px 0;">$${allowance != null ? allowance : "0.00"}</h2>
@@ -42,21 +35,20 @@
 
     <div class="nav-grid">
         <a href="manageStudents" class="nav-card">
-            <h3>👥 Student Management</h3>
-            <p>Add/Delete students and link them to classes.</p>
+            <h3 style="color: #3182ce;">👥 Student Management</h3>
+            <p>Add/Delete students and link them to classes in bulk.</p>
         </a>
-        <a href="attendanceSelect" class="nav-card"> <h3>📝 Quick Attendance</h3>
-            <p>Select a class and pay students for today.</p>
-        </a>
+        <div class="nav-card" style="cursor: default;">
+            <h3 style="color: #38a169;">📝 Quick Attendance</h3>
+            <p>Select a class below to pay students for today.</p>
+        </div>
     </div>
 
     <div class="card" style="margin-top: 30px;">
-        <h3>Assign Students to Class (Quick Link)</h3>
-        <form action="markAttendance" method="POST">
-            <input type="hidden" name="schoolId" value="${sessionScope.user.schoolId}">
-
-            <select name="classId" required style="padding: 10px; width: 100%; margin-bottom: 15px; border-radius: 5px;">
-                <option value="">-- Choose Class to Pay --</option>
+        <h3>Select Class for Attendance Payment</h3>
+        <form action="markAttendance" method="GET">
+            <select name="classId" required style="padding: 12px; width: 100%; margin-bottom: 15px; border-radius: 8px; border: 1px solid #cbd5e0;">
+                <option value="">-- Choose Class to Start Marking --</option>
                 <% 
                     List<Map<String, Object>> classes = (List<Map<String, Object>>) request.getAttribute("classes");
                     if (classes != null) {
@@ -65,8 +57,7 @@
                     <option value="<%= c.get("id") %>"><%= c.get("name") %> ($<%= c.get("pay") %>/day)</option>
                 <% } } %>
             </select>
-
-            <button type="submit" class="btn-submit">Proceed to Marking</button>
+            <button type="submit" class="btn-submit">Start Attendance Session</button>
         </form>
     </div>
 </div>

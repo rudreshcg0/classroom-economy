@@ -1,25 +1,60 @@
--- 1. Create School
+-- 1. Create the School
 INSERT INTO schools (school_name) VALUES ('MMCC_Deccan');
 
--- 2. Create Users (Admins, Teachers, Students)
--- NOTE: We use your new naming format
+-- 2. Create the Users (Admin, Teacher, Students)
 INSERT INTO users (username, password, role, school_id, roll_no) VALUES 
-('admin', 'admin123', 'super_admin', 1, NULL),
+('admin', 'admin123', 'school_admin', 1, NULL),
 ('profe', 'atlantis', 'teacher', 1, NULL),
-('rudresh.101@mmcc.vces', 'pass123', 'student', 1, '101'),
-('anand.102@mmcc.vces', 'pass123', 'student', 1, '102');
+('rudresh.101@vces', 'pass123', 'student', 1, '101'),
+('anand.102@vces', 'pass123', 'student', 1, '102');
 
--- 3. Setup Teacher Allowance (For Profe - ID 2)
--- Note: Check if Profe is ID 2 in your friend's DB, otherwise adjust IDs
+-- 3. Setup the Teacher's Wallet/Allowance
 INSERT INTO teacher_allowance (teacher_id, monthly_budget, current_balance, school_id)
 VALUES (2, 500.00, 500.00, 1);
 
--- 4. Create Classes for the Teacher
+-- 4. Create the Classes
 INSERT INTO classes (class_name, school_id, teacher_id, pay_per_session)
-VALUES ('Java Programming - MMCC', 1, 2, 20.00);
+VALUES ('Java Programming', 1, 2, 20.00),
+       ('Python Basics', 1, 2, 15.00);
 
--- 5. Initialize Wallets for existing Students
-INSERT INTO wallets (student_id, balance, school_id)
-SELECT user_id, 100.00, school_id 
-FROM users 
-WHERE role = 'student';
+-- 5. LINK students to classes (The new many-to-many logic)
+-- Rudresh is in both classes, Anand is only in Java
+INSERT INTO student_classes (student_id, class_id) VALUES (3, 1), (3, 2), (4, 1);
+
+-- 6. Initialize Student Wallets
+INSERT INTO wallets (student_id, balance, school_id) VALUES 
+(3, 0.00, 1),
+(4, 0.00, 1);
+
+-- Create a function that inserts a wallet
+CREATE OR REPLACE FUNCTION initialize_student_wallet()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.role = 'student' THEN
+        INSERT INTO wallets (student_id, balance, school_id)
+        VALUES (NEW.user_id, 0.00, NEW.school_id);
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Attach the trigger to the users table
+CREATE TRIGGER trigger_create_wallet
+AFTER INSERT ON users
+FOR EACH ROW
+EXECUTE FUNCTION initialize_student_wallet();
+
+
+-- 1. Drop the existing strict constraint
+ALTER TABLE transactions DROP CONSTRAINT transactions_receiver_id_fkey;
+
+-- 2. Re-add it with CASCADE (this allows deletion)
+ALTER TABLE transactions 
+ADD CONSTRAINT transactions_receiver_id_fkey 
+FOREIGN KEY (receiver_id) REFERENCES users(user_id) ON DELETE CASCADE;
+
+-- 3. Do the same for sender_id just in case
+ALTER TABLE transactions DROP CONSTRAINT IF EXISTS transactions_sender_id_fkey;
+ALTER TABLE transactions 
+ADD CONSTRAINT transactions_sender_id_fkey 
+FOREIGN KEY (sender_id) REFERENCES users(user_id) ON DELETE CASCADE;

@@ -1,11 +1,13 @@
--- 1. Schools (The foundation)
+-- ==========================================
+-- PHASE 1: CORE INFRASTRUCTURE (The Basics)
+-- ==========================================
+
 CREATE TABLE schools (
     school_id SERIAL PRIMARY KEY,
     school_name VARCHAR(100) UNIQUE NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 2. Users (Includes the Roll No update)
 CREATE TABLE users (
     user_id SERIAL PRIMARY KEY,
     username VARCHAR(100) UNIQUE NOT NULL,
@@ -16,7 +18,16 @@ CREATE TABLE users (
     CONSTRAINT unique_roll_per_school UNIQUE (roll_no, school_id)
 );
 
--- 3. Teacher Allowance
+-- ==========================================
+-- PHASE 2: ECONOMY LAYER (The Money)
+-- ==========================================
+
+CREATE TABLE wallets (
+    student_id INTEGER PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+    balance DECIMAL(10,2) DEFAULT 0.00,
+    school_id INTEGER REFERENCES schools(school_id)
+);
+
 CREATE TABLE teacher_allowance (
     teacher_id INTEGER PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
     monthly_budget DECIMAL(10,2) NOT NULL,
@@ -24,23 +35,30 @@ CREATE TABLE teacher_allowance (
     school_id INTEGER REFERENCES schools(school_id)
 );
 
--- 4. Wallets
-CREATE TABLE wallets (
-    student_id INTEGER PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
-    balance DECIMAL(10,2) DEFAULT 0.00,
-    school_id INTEGER REFERENCES schools(school_id)
-);
+-- ==========================================
+-- PHASE 3: ACADEMIC LAYER (Classes & Junctions)
+-- ==========================================
 
--- 5. Classes
+-- We added ON DELETE SET NULL here recently so classes stay if a teacher leaves
 CREATE TABLE classes (
     class_id SERIAL PRIMARY KEY,
     class_name VARCHAR(100) NOT NULL,
     school_id INTEGER REFERENCES schools(school_id) ON DELETE CASCADE,
-    teacher_id INTEGER REFERENCES users(user_id),
+    teacher_id INTEGER REFERENCES users(user_id) ON DELETE SET NULL, 
     pay_per_session DECIMAL(10,2) DEFAULT 10.00
 );
 
--- 6. Attendance (The transaction link)
+-- This is the NEWEST addition: Allows students in multiple classes
+CREATE TABLE student_classes (
+    student_id INT REFERENCES users(user_id) ON DELETE CASCADE,
+    class_id INT REFERENCES classes(class_id) ON DELETE CASCADE,
+    PRIMARY KEY (student_id, class_id)
+);
+
+-- ==========================================
+-- PHASE 4: TRANSACTION LAYER (Logs & History)
+-- ==========================================
+
 CREATE TABLE attendance (
     attendance_id SERIAL PRIMARY KEY,
     student_id INTEGER REFERENCES users(user_id) ON DELETE CASCADE,
@@ -51,7 +69,6 @@ CREATE TABLE attendance (
     UNIQUE(student_id, class_id, attendance_date)
 );
 
--- 7. Transactions (The history log)
 CREATE TABLE transactions (
     transaction_id SERIAL PRIMARY KEY,
     sender_id INTEGER REFERENCES users(user_id), 

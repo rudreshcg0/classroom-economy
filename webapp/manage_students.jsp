@@ -3,144 +3,184 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Student Management Hub - VCES</title>
+    <title>Registry Management - VCES</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; margin: 0; background-color: #f7fafc; display: flex; }
-        .sidebar { width: 250px; background: #1a202c; color: white; height: 100vh; padding: 25px; position: fixed; }
-        .main-content { margin-left: 300px; padding: 40px; width: calc(100% - 340px); }
-        .card { background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 25px; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #edf2f7; }
-        th { background: #f1f5f9; color: #475569; font-size: 12px; text-transform: uppercase; }
-        .row-input { display: flex; gap: 10px; margin-bottom: 10px; }
-        input, select { padding: 10px; border: 1px solid #e2e8f0; border-radius: 6px; width: 100%; }
-        .btn { padding: 10px 15px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; color: white; transition: 0.3s; }
-        .btn-add { background: #3182ce; }
-        .btn-save { background: #38a169; width: 100%; margin-top: 10px; }
-        .btn-del { background: #e53e3e; padding: 5px 10px; font-size: 11px; }
-        .btn-link { background: #805ad5; width: 100%; margin-top: 10px; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f8f9fa; margin: 0; padding: 20px; display: flex; }
+        .sidebar { width: 240px; background: #2d3436; color: white; height: 100vh; padding: 25px; position: fixed; left: 0; top: 0; }
+        .main-content { margin-left: 270px; width: 100%; max-width: 1200px; }
+        .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 25px; }
+        .nav-tabs { display: flex; gap: 5px; margin-bottom: 20px; border-bottom: 2px solid #dee2e6; }
+        .tab-btn { padding: 12px 30px; border: none; background: none; cursor: pointer; font-weight: 600; color: #636e72; border-bottom: 3px solid transparent; }
+        .tab-btn.active { color: #0984e3; border-bottom-color: #0984e3; }
+        .hidden { display: none; }
+        textarea, select, .search-bar { width: 100%; padding: 12px; border: 1px solid #dfe6e9; border-radius: 8px; box-sizing: border-box; }
+        .btn { padding: 12px 24px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; color: white; width: 100%; margin-top: 10px; }
+        .btn-primary { background: #0984e3; } .btn-danger { background: #d63031; } .btn-warning { background: #6c5ce7; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #f1f2f6; }
+        .checkbox-cell { width: 30px; text-align: center; }
+        .scroll-area { max-height: 250px; overflow-y: auto; border: 1px solid #dfe6e9; padding: 10px; border-radius: 8px; margin-top: 10px; }
     </style>
 </head>
 <body>
 
 <div class="sidebar">
-    <h2>Teacher Tools</h2>
-    <p>Logged in: <strong>${sessionScope.user.username}</strong></p>
-    <hr style="border: 0.1px solid #4a5568; margin: 20px 0;">
-    <a href="teacherDashboard" style="color: #cbd5e0; text-decoration: none; display: block; margin-bottom: 15px;">⬅ Back to Dashboard</a>
-    <a href="login.html" style="color: #fc8181; text-decoration: none;">Logout</a>
+    <h3>VCES Admin</h3>
+    <hr style="border: 0.5px solid #636e72;">
+    <a href="teacherDashboard" style="color: #dfe6e9; text-decoration: none; display: block; margin: 20px 0;">Dashboard</a>
+    <a href="login.html" style="color: #ff7675; text-decoration: none;">Logout</a>
 </div>
 
 <div class="main-content">
-    <h1>Student Management Hub</h1>
+    <div class="nav-tabs">
+        <button class="tab-btn active" onclick="switchTab('add')">Register & Enroll</button>
+        <button class="tab-btn" onclick="switchTab('remove')">Terminate & Unenroll</button>
+    </div>
 
-    <div class="grid">
-        <div class="card">
-            <h3>+ Add Multiple Students</h3>
-            <form action="manageStudents" method="POST">
-                <input type="hidden" name="action" value="addBulk">
-                <div id="studentRows">
-                    <div class="row-input">
-                        <input type="text" name="names" placeholder="Student Name" required>
-                        <input type="text" name="rolls" placeholder="Roll No" required style="width: 100px;">
+    <div id="sectionAdd">
+        <div style="display:grid; grid-template-columns: 1fr 1.5fr; gap: 20px;">
+            <div class="card">
+                <h3>New Registration</h3>
+                <form action="manageStudents" method="POST">
+                    <input type="hidden" name="action" value="register">
+                    <textarea name="studentData" placeholder="Name, Roll No (One per line)" required style="height: 200px;"></textarea>
+                    <button type="submit" class="btn btn-primary">Process Registration</button>
+                </form>
+            </div>
+
+            <div class="card">
+                <h3>Class Enrollment</h3>
+                <form action="manageStudents" method="POST">
+                    <input type="hidden" name="action" value="enroll">
+                    <select name="classId" required>
+                        <option value="">Select Target Class</option>
+                        <% List<Map<String, Object>> classes = (List<Map<String, Object>>)request.getAttribute("classes");
+                           if(classes != null) for(Map<String, Object> c : classes) { %>
+                            <option value="<%= c.get("id") %>"><%= c.get("name") %></option>
+                        <% } %>
+                    </select>
+                    
+                    <input type="text" id="enrollSearch" onkeyup="filterEnrollList()" placeholder="Search students..." class="search-bar" style="margin-top:10px;">
+                    
+                    <div class="scroll-area">
+                        <label style="display:block; padding-bottom: 10px; border-bottom: 1px solid #eee; margin-bottom: 10px; font-weight: bold;">
+                            <input type="checkbox" id="enrollMaster" onclick="toggleEnrollAll(this)"> Select All Visible
+                        </label>
+                        <div id="enrollListBody">
+                            <% List<User> studentList = (List<User>)request.getAttribute("students");
+                               if(studentList != null) for(User s : studentList) { %>
+                                <label class="enroll-item" style="display:block; padding: 5px 0;">
+                                    <input type="checkbox" name="studentIds" value="<%= s.getId() %>"> <%= s.getUsername() %> [Roll: <%= s.getRollNo() %>]
+                                </label>
+                            <% } %>
+                        </div>
                     </div>
-                </div>
-                <button type="button" onclick="addRow()" class="btn btn-add">+ Add Another Row</button>
-                <button type="submit" class="btn btn-save">Save All Students</button>
-            </form>
+                    <button type="submit" class="btn btn-warning">Confirm Enrollment</button>
+                </form>
+            </div>
         </div>
+    </div>
 
+    <div id="sectionRemove" class="hidden">
         <div class="card">
-            <h3>🔗 Assign to Class</h3>
-            <form action="manageStudents" method="POST">
-                <input type="hidden" name="action" value="linkClass">
-                <label>Select Student:</label>
-                <select name="studentId" required style="margin-bottom: 15px;">
-                    <option value="">-- Choose Student --</option>
-                    <% List<User> students = (List<User>)request.getAttribute("students");
-                       if(students != null) for(User s : students) { %>
-                        <option value="<%= s.getId() %>"><%= s.getUsername() %> (<%= s.getRollNo() %>)</option>
+            <h3>Registry Management</h3>
+            <div style="display:flex; gap: 15px; margin-bottom: 20px;">
+                <select id="classFilter" onchange="applyRegistryFilter()" style="flex:1">
+                    <option value="all">Full Registry (System Termination)</option>
+                    <% if(classes != null) for(Map<String, Object> c : classes) { %>
+                        <option value="<%= c.get("id") %>"><%= c.get("name") %> (Class Unenrollment)</option>
                     <% } %>
                 </select>
+                <input type="text" id="registrySearch" onkeyup="applyRegistryFilter()" placeholder="Search registry..." class="search-bar" style="flex:1; margin-bottom:0;">
+                <button type="button" class="btn btn-danger" onclick="executeRegistryAction()" id="batchBtn" style="flex:0.5; margin-top:0;">Terminate Selected</button>
+            </div>
 
-                <label>Select Class:</label>
-                <select name="classId" required>
-                    <option value="">-- Choose Class --</option>
-                    <% List<Map<String, Object>> classes = (List<Map<String, Object>>)request.getAttribute("classes");
-                       if(classes != null) for(Map<String, Object> c : classes) { %>
-                        <option value="<%= c.get("id") %>"><%= c.get("name") %></option>
-                    <% } %>
-                </select>
-                <button type="submit" class="btn btn-link">Assign to Class</button>
+            <form id="registryForm" action="manageStudents" method="POST">
+                <input type="hidden" name="action" id="currentAction" value="terminate">
+                <input type="hidden" name="classId" id="targetClassId">
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="checkbox-cell"><input type="checkbox" id="regMaster" onclick="toggleRegistryAll(this)"></th>
+                            <th>ID / Roll No</th>
+                            <th>Credential / Username</th>
+                            <th>Active Enrollments</th>
+                        </tr>
+                    </thead>
+                    <tbody id="registryBody">
+                        <% List<Map<String, Object>> enrolls = (List<Map<String, Object>>)request.getAttribute("enrollments");
+                           if(studentList != null) for(User s : studentList) { 
+                               String cIds = ""; String cNames = "";
+                               if(enrolls != null) for(Map<String, Object> e : enrolls) {
+                                   if((int)e.get("sId") == s.getId()) { cIds += e.get("cId") + ","; cNames += e.get("cName") + ", "; }
+                               }
+                        %>
+                        <tr class="registry-row" data-enrollments="<%= cIds %>">
+                            <td class="checkbox-cell"><input type="checkbox" name="studentIds" value="<%= s.getId() %>"></td>
+                            <td><%= s.getRollNo() %></td>
+                            <td><strong><%= s.getUsername() %></strong></td>
+                            <td><small><%= cNames %></small></td>
+                        </tr>
+                        <% } %>
+                    </tbody>
+                </table>
             </form>
         </div>
-    </div>
-
-    <div class="card">
-        <h3>Current Class Enrollments</h3>
-        <table>
-            <thead>
-                <tr><th>Student Name</th><th>Class Name</th><th>Action</th></tr>
-            </thead>
-            <tbody>
-                <% List<Map<String, Object>> enrolls = (List<Map<String, Object>>)request.getAttribute("enrollments");
-                   if(enrolls != null && !enrolls.isEmpty()) {
-                       for(Map<String, Object> e : enrolls) { %>
-                    <tr>
-                        <td><%= e.get("sName") %></td>
-                        <td><strong><%= e.get("cName") %></strong></td>
-                        <td>
-                            <form action="manageStudents" method="POST" style="display:inline;">
-                                <input type="hidden" name="action" value="removeFromClass">
-                                <input type="hidden" name="studentId" value="<%= e.get("sId") %>">
-                                <input type="hidden" name="classId" value="<%= e.get("cId") %>">
-                                <button type="submit" class="btn btn-del" onclick="return confirm('Remove from this class?')">Remove Link</button>
-                            </form>
-                        </td>
-                    </tr>
-                <% } } else { %>
-                    <tr><td colspan="3">No students assigned to your classes yet.</td></tr>
-                <% } %>
-            </tbody>
-        </table>
-    </div>
-
-    <div class="card">
-        <h3>Master Student List (School-wide)</h3>
-        <table>
-            <thead>
-                <tr><th>Roll No</th><th>Username</th><th>Action</th></tr>
-            </thead>
-            <tbody>
-                <% if(students != null) for(User s : students) { %>
-                    <tr>
-                        <td><%= s.getRollNo() %></td>
-                        <td><%= s.getUsername() %></td>
-                        <td>
-                            <form action="manageStudents" method="POST" style="display:inline;">
-                                <input type="hidden" name="action" value="deleteStudent">
-                                <input type="hidden" name="studentId" value="<%= s.getId() %>">
-                                <button type="submit" class="btn btn-del" onclick="return confirm('PERMANENTLY delete this student from the whole system?')">Delete Permanently</button>
-                            </form>
-                        </td>
-                    </tr>
-                <% } %>
-            </tbody>
-        </table>
     </div>
 </div>
 
 <script>
-    function addRow() {
-        const container = document.getElementById('studentRows');
-        const newRow = document.createElement('div');
-        newRow.className = 'row-input';
-        newRow.innerHTML = '<input type="text" name="names" placeholder="Student Name" required> ' +
-                           '<input type="text" name="rolls" placeholder="Roll No" required style="width: 100px;">';
-        container.appendChild(newRow);
-    }
-</script>
+function switchTab(mode) {
+    document.getElementById('sectionAdd').classList.toggle('hidden', mode !== 'add');
+    document.getElementById('sectionRemove').classList.toggle('hidden', mode !== 'remove');
+    document.querySelectorAll('.tab-btn').forEach((b, i) => b.classList.toggle('active', (i === 0 && mode === 'add') || (i === 1 && mode === 'remove')));
+}
 
+// Enrollment Select All
+function filterEnrollList() {
+    const q = document.getElementById('enrollSearch').value.toLowerCase();
+    document.querySelectorAll('.enroll-item').forEach(item => item.style.display = item.innerText.toLowerCase().includes(q) ? "block" : "none");
+}
+function toggleEnrollAll(master) {
+    document.querySelectorAll('#enrollListBody input[name="studentIds"]').forEach(cb => {
+        if(cb.closest('.enroll-item').style.display !== "none") cb.checked = master.checked;
+    });
+}
+
+// Registry Select All
+function applyRegistryFilter() {
+    const classId = document.getElementById('classFilter').value;
+    const search = document.getElementById('registrySearch').value.toLowerCase();
+    const rows = document.querySelectorAll('.registry-row');
+    document.getElementById('regMaster').checked = false;
+
+    rows.forEach(row => {
+        const matchesClass = (classId === "all" || row.getAttribute('data-enrollments').split(',').includes(classId));
+        const matchesSearch = row.innerText.toLowerCase().includes(search);
+        row.style.display = (matchesClass && matchesSearch) ? "" : "none";
+    });
+
+    const btn = document.getElementById('batchBtn');
+    const act = document.getElementById('currentAction');
+    if (classId === "all") {
+        btn.innerText = "Terminate Selected"; btn.className = "btn btn-danger"; act.value = "terminate";
+    } else {
+        btn.innerText = "Unenroll from Class"; btn.className = "btn btn-warning"; act.value = "unenroll";
+        document.getElementById('targetClassId').value = classId;
+    }
+}
+function toggleRegistryAll(master) {
+    document.querySelectorAll('#registryBody input[name="studentIds"]').forEach(cb => {
+        if(cb.closest('tr').style.display !== "none") cb.checked = master.checked;
+    });
+}
+
+function executeRegistryAction() {
+    const form = document.getElementById('registryForm');
+    const checked = form.querySelectorAll('input[name="studentIds"]:checked').length;
+    if (checked === 0) { alert("Please select records."); return; }
+    if (confirm("Execute selected operation for " + checked + " records?")) form.submit();
+}
+</script>
 </body>
-</html>
+</html> 
