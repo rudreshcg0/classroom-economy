@@ -58,3 +58,47 @@ ALTER TABLE transactions DROP CONSTRAINT IF EXISTS transactions_sender_id_fkey;
 ALTER TABLE transactions 
 ADD CONSTRAINT transactions_sender_id_fkey 
 FOREIGN KEY (sender_id) REFERENCES users(user_id) ON DELETE CASCADE;
+
+DROP TABLE IF EXISTS payment_requests;
+
+CREATE TABLE payment_requests (
+    request_id SERIAL PRIMARY KEY,
+    sender_id INT REFERENCES users(user_id),   -- The one asking for money
+    receiver_id INT REFERENCES users(user_id), -- The one who has to approve/pay
+    amount DECIMAL(10,2) NOT NULL,
+    note TEXT,
+    status VARCHAR(20) DEFAULT 'PENDING',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Final Payment Request Table
+DROP TABLE IF EXISTS payment_requests;
+CREATE TABLE payment_requests (
+    request_id SERIAL PRIMARY KEY,
+    sender_id INT REFERENCES users(user_id),   -- Student requesting money
+    receiver_id INT REFERENCES users(user_id), -- Student who needs to pay
+    amount DECIMAL(10,2) NOT NULL,
+    note TEXT,
+    status VARCHAR(20) DEFAULT 'PENDING',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Final Marketplace Orders Table
+DROP TABLE IF EXISTS marketplace_orders;
+CREATE TABLE marketplace_orders (
+    order_id SERIAL PRIMARY KEY,
+    student_id INT REFERENCES users(user_id),
+    item_name VARCHAR(100),
+    price DECIMAL(10,2),
+    status VARCHAR(20) DEFAULT 'PENDING_TEACHER',
+    purchased_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Ensure Marketplace orders are linked to transactions
+ALTER TABLE marketplace_orders ADD COLUMN transaction_id INT REFERENCES transactions(transaction_id);
+
+-- Ensure payment requests have a "DECLINED" status option
+ALTER TABLE payment_requests ALTER COLUMN status SET DEFAULT 'PENDING';
+
+-- 2. Update marketplace_orders to link to the specific item
+ALTER TABLE marketplace_orders ADD COLUMN item_id INT REFERENCES marketplace_items(item_id);

@@ -79,3 +79,36 @@ CREATE TABLE transactions (
     school_id INTEGER REFERENCES schools(school_id),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE payment_requests (
+    request_id SERIAL PRIMARY KEY,
+    sender_id INT REFERENCES users(user_id), -- The one who wants money
+    receiver_id INT REFERENCES users(user_id), -- The one who has to pay
+    amount DECIMAL(10,2) NOT NULL,
+    description TEXT,
+    status VARCHAR(20) DEFAULT 'PENDING', -- PENDING, APPROVED, DECLINED
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    school_id INT REFERENCES schools(school_id)
+);
+
+CREATE TABLE marketplace_orders (
+    order_id SERIAL PRIMARY KEY,
+    student_id INT REFERENCES users(user_id),
+    item_name VARCHAR(100),
+    price DECIMAL(10,2),
+    status VARCHAR(20) DEFAULT 'PENDING_TEACHER', -- Teacher must acknowledge
+    purchased_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 1. Table for items created by teachers
+CREATE TABLE marketplace_items (
+    item_id SERIAL PRIMARY KEY,
+    teacher_id INT REFERENCES users(user_id),
+    school_id INT REFERENCES schools(school_id),
+    item_name VARCHAR(100) NOT NULL,
+    item_description TEXT,
+    price DECIMAL(10,2) NOT NULL,
+    stock INT DEFAULT -1, -- Use -1 for unlimited, 0 for Sold Out
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
