@@ -14,8 +14,7 @@ public class SuperAdminServlet extends HttpServlet {
         HttpSession session = request.getSession();
         User user = (User) session.getAttribute("user");
         
-        // Security: Only allow platform_root or super_admin
-        if (user == null || (!user.getRole().equals("platform_root") && !user.getRole().equals("super_admin"))) {
+        if (user == null || !user.getRole().equals("platform_root")) {
             response.sendRedirect("login.html");
             return;
         }
@@ -25,8 +24,7 @@ public class SuperAdminServlet extends HttpServlet {
         try (Connection conn = DBConnection.getConnection()) {
             if ("createSchool".equals(action)) {
                 String name = request.getParameter("schoolName");
-                String sql = "INSERT INTO schools (school_name) VALUES (?)";
-                try (PreparedStatement pst = conn.prepareStatement(sql)) {
+                try (PreparedStatement pst = conn.prepareStatement("INSERT INTO schools (school_name) VALUES (?)")) {
                     pst.setString(1, name);
                     pst.executeUpdate();
                 }
@@ -35,8 +33,7 @@ public class SuperAdminServlet extends HttpServlet {
                 String adminPass = request.getParameter("adminPass");
                 int schoolId = Integer.parseInt(request.getParameter("schoolId"));
                 
-                String sql = "INSERT INTO users (username, password, role, school_id) VALUES (?, ?, 'school_admin', ?)";
-                try (PreparedStatement pst = conn.prepareStatement(sql)) {
+                try (PreparedStatement pst = conn.prepareStatement("INSERT INTO users (username, password, role, school_id) VALUES (?, ?, 'school_admin', ?)")) {
                     pst.setString(1, adminUser);
                     pst.setString(2, adminPass);
                     pst.setInt(3, schoolId);
@@ -44,18 +41,8 @@ public class SuperAdminServlet extends HttpServlet {
                 }
             } else if ("deleteSchool".equals(action)) {
                 int schoolId = Integer.parseInt(request.getParameter("schoolId"));
-                // This triggers the ON DELETE CASCADE set in the DB
-                String sql = "DELETE FROM schools WHERE school_id = ?";
-                try (PreparedStatement pst = conn.prepareStatement(sql)) {
+                try (PreparedStatement pst = conn.prepareStatement("DELETE FROM schools WHERE school_id = ?")) {
                     pst.setInt(1, schoolId);
-                    pst.executeUpdate();
-                }
-            } else if ("deleteAdmin".equals(action)) {
-                int adminId = Integer.parseInt(request.getParameter("adminId"));
-                // Specific delete for the admin user only
-                String sql = "DELETE FROM users WHERE user_id = ? AND role = 'school_admin'";
-                try (PreparedStatement pst = conn.prepareStatement(sql)) {
-                    pst.setInt(1, adminId);
                     pst.executeUpdate();
                 }
             }
