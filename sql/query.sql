@@ -102,3 +102,9 @@ ALTER TABLE payment_requests ALTER COLUMN status SET DEFAULT 'PENDING';
 
 -- 2. Update marketplace_orders to link to the specific item
 ALTER TABLE marketplace_orders ADD COLUMN item_id INT REFERENCES marketplace_items(item_id);
+
+ALTER TABLE users 
+DROP CONSTRAINT IF EXISTS users_school_id_fkey,
+ADD CONSTRAINT users_school_id_fkey 
+FOREIGN KEY (school_id) REFERENCES schools(school_id) 
+ON DELETE CASCADE;

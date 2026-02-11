@@ -39,10 +39,24 @@ public class SuperAdminServlet extends HttpServlet {
                     pst.setInt(3, schoolId);
                     pst.executeUpdate();
                 }
+            } else if ("editSchool".equals(action)) {
+                int schoolId = Integer.parseInt(request.getParameter("schoolId"));
+                String newName = request.getParameter("newName");
+                try (PreparedStatement pst = conn.prepareStatement("UPDATE schools SET school_name = ? WHERE school_id = ?")) {
+                    pst.setString(1, newName);
+                    pst.setInt(2, schoolId);
+                    pst.executeUpdate();
+                }
             } else if ("deleteSchool".equals(action)) {
                 int schoolId = Integer.parseInt(request.getParameter("schoolId"));
                 try (PreparedStatement pst = conn.prepareStatement("DELETE FROM schools WHERE school_id = ?")) {
                     pst.setInt(1, schoolId);
+                    pst.executeUpdate();
+                }
+            } else if ("deleteAdmin".equals(action)) {
+                int adminId = Integer.parseInt(request.getParameter("adminId"));
+                try (PreparedStatement pst = conn.prepareStatement("DELETE FROM users WHERE user_id = ? AND role = 'school_admin'")) {
+                    pst.setInt(1, adminId);
                     pst.executeUpdate();
                 }
             }
