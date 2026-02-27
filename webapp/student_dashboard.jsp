@@ -36,7 +36,7 @@
     <div class="nav-item active" onclick="openTab(event, 'home')">🏠 Dashboard</div>
     <div class="nav-item" onclick="openTab(event, 'pay')">💸 Pay & Request</div>
     <div class="nav-item" onclick="openTab(event, 'shop')">🛒 Marketplace</div>
-    <a href="login.html" class="nav-item" style="color: #f87171; margin-top: 30px;">Logout</a>
+    <a href="login.jsp" class="nav-item" style="color: #f87171; margin-top: 30px;">Logout</a>
 </div>
 
 <div class="main">

@@ -28,7 +28,7 @@
     <h3>VCES Admin</h3>
     <hr style="border: 0.5px solid #636e72;">
     <a href="teacherDashboard" style="color: #dfe6e9; text-decoration: none; display: block; margin: 20px 0;">Dashboard</a>
-    <a href="login.html" style="color: #ff7675; text-decoration: none;">Logout</a>
+    <a href="login.jsp" style="color: #ff7675; text-decoration: none;">Logout</a>
 </div>
 
 <div class="main-content">

@@ -39,7 +39,7 @@
     <a href="teacherDashboard" style="color: #dfe6e9; text-decoration: none; display: block; margin: 15px 0;">🏠 Dashboard</a>
     <a href="manageStudents" style="color: #dfe6e9; text-decoration: none; display: block; margin: 15px 0;">👥 Student Registry</a>
     <a href="studentTransactions" style="color: white; font-weight: bold; text-decoration: none; display: block; margin: 15px 0; background: #0984e3; padding: 10px; border-radius: 8px;">💰 Financial Ledger</a>
-    <a href="login.html" style="color: #ff7675; text-decoration: none; display: block; margin-top: 30px;">Logout</a>
+    <a href="login.jsp" style="color: #ff7675; text-decoration: none; display: block; margin-top: 30px;">Logout</a>
 </div>
 
 <div class="main-content">

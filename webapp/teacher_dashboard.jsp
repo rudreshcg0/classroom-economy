@@ -43,7 +43,7 @@
         <a href="manageStudents" class="sidebar-link">👥 Student Registry</a>
         <a href="studentTransactions" class="sidebar-link">💰 Financial Ledger</a>
         <hr style="border: 0.1px solid #4a5568; margin: 20px 0;">
-        <a href="login.html" style="color: #fc8181;" class="sidebar-link">🚪 Logout</a>
+        <a href="login.jsp" style="color: #fc8181;" class="sidebar-link">🚪 Logout</a>
     </nav>
 </div>
 

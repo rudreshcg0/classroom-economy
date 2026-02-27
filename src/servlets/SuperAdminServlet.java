@@ -14,8 +14,9 @@ public class SuperAdminServlet extends HttpServlet {
         HttpSession session = request.getSession();
         User user = (User) session.getAttribute("user");
         
+        // 1. Updated to redirect to the .jsp version of your login page
         if (user == null || !user.getRole().equals("platform_root")) {
-            response.sendRedirect("login.html");
+            response.sendRedirect("login.jsp");
             return;
         }
 
@@ -33,7 +34,10 @@ public class SuperAdminServlet extends HttpServlet {
                 String adminPass = request.getParameter("adminPass");
                 int schoolId = Integer.parseInt(request.getParameter("schoolId"));
                 
-                try (PreparedStatement pst = conn.prepareStatement("INSERT INTO users (username, password, role, school_id) VALUES (?, ?, 'school_admin', ?)")) {
+                // 2. UPDATED SQL: Added must_change_password column and set it to TRUE
+                String sql = "INSERT INTO users (username, password, role, school_id, must_change_password) VALUES (?, ?, 'school_admin', ?, TRUE)";
+                
+                try (PreparedStatement pst = conn.prepareStatement(sql)) {
                     pst.setString(1, adminUser);
                     pst.setString(2, adminPass);
                     pst.setInt(3, schoolId);

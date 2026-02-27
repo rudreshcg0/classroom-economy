@@ -17,7 +17,7 @@ public class AdminActionServlet extends HttpServlet {
 
         // Basic Security Check
         if (admin == null || admin.getSchoolId() == null) {
-            response.sendRedirect("login.html");
+            response.sendRedirect("login.jsp"); // Updated to .jsp
             return;
         }
 
@@ -25,7 +25,10 @@ public class AdminActionServlet extends HttpServlet {
             if ("addTeacher".equals(action)) {
                 String user = request.getParameter("username");
                 String pass = request.getParameter("password");
-                String sql = "INSERT INTO users (username, password, role, school_id) VALUES (?, ?, 'teacher', ?)";
+                
+                // UPDATED SQL: Explicitly set must_change_password to TRUE for new teachers
+                String sql = "INSERT INTO users (username, password, role, school_id, must_change_password) VALUES (?, ?, 'teacher', ?, TRUE)";
+                
                 try (PreparedStatement pst = conn.prepareStatement(sql)) {
                     pst.setString(1, user);
                     pst.setString(2, pass);
@@ -33,6 +36,7 @@ public class AdminActionServlet extends HttpServlet {
                     pst.executeUpdate();
                 }
             } 
+            // ... (rest of the existing logic for addClass, assignTeacher, deleteUser, etc.)
             else if ("addClass".equals(action)) {
                 String className = request.getParameter("className");
                 double pay = Double.parseDouble(request.getParameter("payRate"));
@@ -48,7 +52,6 @@ public class AdminActionServlet extends HttpServlet {
                 int classId = Integer.parseInt(request.getParameter("classId"));
                 int teacherId = Integer.parseInt(request.getParameter("teacherId"));
                 
-                // Logic: If teacherId is 0, we set to NULL (Unlink). Otherwise, we Link.
                 String sql;
                 if (teacherId == 0) {
                     sql = "UPDATE classes SET teacher_id = NULL WHERE class_id = ? AND school_id = ?";
@@ -69,7 +72,6 @@ public class AdminActionServlet extends HttpServlet {
                 }
             } 
             else if ("deleteUser".equals(action)) {
-                // Handling both single and bulk deletes
                 String[] ids = request.getParameterValues("id"); 
                 if (ids != null && ids.length > 0) {
                     String sql = "DELETE FROM users WHERE user_id = ? AND school_id = ? AND role != 'school_admin'";
@@ -80,7 +82,7 @@ public class AdminActionServlet extends HttpServlet {
                                 pst.setInt(2, admin.getSchoolId());
                                 pst.addBatch();
                             } catch (NumberFormatException e) {
-                                continue; // Skip non-numeric values
+                                continue; 
                             }
                         }
                         pst.executeBatch();
@@ -97,7 +99,6 @@ public class AdminActionServlet extends HttpServlet {
                 }
             }
             
-            // Redirect back to management view or ledger view based on current context
             String redirectView = request.getParameter("view") != null ? request.getParameter("view") : "management";
             response.sendRedirect("adminDashboard?view=" + redirectView + "&success=1");
             

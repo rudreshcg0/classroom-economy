@@ -16,15 +16,35 @@ public class TeacherActionServlet extends HttpServlet {
         User teacher = (User) session.getAttribute("user");
         String action = request.getParameter("action");
 
+        // Updated redirect to .jsp
         if (teacher == null || !teacher.getRole().equalsIgnoreCase("teacher")) {
-            response.sendRedirect("login.html");
+            response.sendRedirect("login.jsp"); 
             return;
         }
 
         try (Connection conn = DBConnection.getConnection()) {
             conn.setAutoCommit(false); 
 
-            if ("createItem".equals(action)) {
+            // --- NEW: Student Creation Logic ---
+            if ("addStudent".equals(action)) {
+                String studentUser = request.getParameter("username");
+                String studentPass = request.getParameter("password");
+                String rollNo = request.getParameter("rollNo");
+
+                // UPDATED SQL: Set must_change_password to TRUE for new students
+                String sql = "INSERT INTO users (username, password, role, school_id, roll_no, must_change_password) VALUES (?, ?, 'student', ?, ?, TRUE)";
+                try (PreparedStatement pst = conn.prepareStatement(sql)) {
+                    pst.setString(1, studentUser);
+                    pst.setString(2, studentPass);
+                    pst.setInt(3, teacher.getSchoolId());
+                    pst.setString(4, rollNo);
+                    pst.executeUpdate();
+                }
+                conn.commit();
+            }
+            
+            // --- Existing Marketplace Logic ---
+            else if ("createItem".equals(action)) {
                 String sql = "INSERT INTO marketplace_items (teacher_id, school_id, item_name, price, stock, item_description) VALUES (?, ?, ?, ?, ?, ?)";
                 try (PreparedStatement pst = conn.prepareStatement(sql)) {
                     pst.setInt(1, teacher.getId());
@@ -65,7 +85,7 @@ public class TeacherActionServlet extends HttpServlet {
                                         pstR.executeUpdate();
                                     }
 
-                                    // 3. RESTOCK (Add +1 back to stock if not unlimited)
+                                    // 3. RESTOCK
                                     String sqlRestock = "UPDATE marketplace_items SET stock = stock + 1 WHERE item_id = ? AND stock <> -1";
                                     try (PreparedStatement pstRS = conn.prepareStatement(sqlRestock)) {
                                         pstRS.setInt(1, itemId);

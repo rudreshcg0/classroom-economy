@@ -108,3 +108,9 @@ DROP CONSTRAINT IF EXISTS users_school_id_fkey,
 ADD CONSTRAINT users_school_id_fkey 
 FOREIGN KEY (school_id) REFERENCES schools(school_id) 
 ON DELETE CASCADE;
+
+-- Add this to your schema to track first-time logins
+ALTER TABLE users ADD COLUMN must_change_password BOOLEAN DEFAULT TRUE;
+
+-- Ensure the Root Admin is exempt by setting their flag to FALSE
+UPDATE users SET must_change_password = FALSE WHERE role = 'platform_root';

@@ -33,7 +33,7 @@
     <div class="container">
         <div style="display: flex; justify-content: space-between; align-items: center;">
             <h2>🌍 Platform Management Hub</h2>
-            <p>Master: <strong><%= user.getUsername() %></strong> | <a href="login.html" style="color: #e74c3c;">Logout</a></p>
+            <p>Master: <strong><%= user.getUsername() %></strong> | <a href="login.jsp" style="color: #e74c3c;">Logout</a></p>
         </div>
 
         <div class="grid">

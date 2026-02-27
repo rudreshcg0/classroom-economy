@@ -33,7 +33,7 @@
         <a href="adminDashboard?view=management" class="<%= "management".equals(currentView) ? "active" : "" %>">⚙️ Management</a>
         <a href="adminDashboard?view=ledger" class="<%= "ledger".equals(currentView) ? "active" : "" %>">💰 Financial Ledger</a>
         <hr style="border:0.5px solid #4a5568; margin: 20px 0;">
-        <a href="login.html" style="color:#fc8181;">🚪 Logout</a>
+        <a href="login.jsp" style="color:#fc8181;">🚪 Logout</a>
     </nav>
 </div>
 
