@@ -114,3 +114,5 @@ ALTER TABLE users ADD COLUMN must_change_password BOOLEAN DEFAULT TRUE;
 
 -- Ensure the Root Admin is exempt by setting their flag to FALSE
 UPDATE users SET must_change_password = FALSE WHERE role = 'platform_root';
+
+ALTER TABLE users ADD COLUMN email VARCHAR(255);
