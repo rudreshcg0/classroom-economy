@@ -1,6 +1,10 @@
 {
     "java.project.referencedLibraries": [
         "lib/**/*.jar",
-        "c:\\apache-tomcat-10.1.52\\lib\\servlet-api.jar"
+        "c:\\apache-tomcat-10.1.52\\lib\\servlet-api.jar",
+        "webapp/WEB-INF/lib/angus-activation-2.0.2.jar",
+        "webapp/WEB-INF/lib/angus-mail-2.0.4.jar",
+        "webapp/WEB-INF/lib/jakarta.mail-api-2.1.3.jar",
+        "webapp/WEB-INF/lib/angus-activation-2.0.2 (1).jar"
     ]
 }

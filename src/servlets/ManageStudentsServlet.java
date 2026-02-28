@@ -14,7 +14,7 @@ public class ManageStudentsServlet extends HttpServlet {
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         HttpSession session = request.getSession();
         User teacher = (User) session.getAttribute("user");
-        if (teacher == null) { response.sendRedirect("login.html"); return; }
+        if (teacher == null) { response.sendRedirect("login.jsp"); return; }
 
         List<User> students = new ArrayList<>();
         List<Map<String, Object>> classes = new ArrayList<>();
@@ -34,16 +34,26 @@ public class ManageStudentsServlet extends HttpServlet {
                 }
             }
 
-            // 2. Fetch Registry
-            String sqlS = "SELECT u.user_id, u.username, u.roll_no, w.balance FROM users u " +
+            // 2. Fetch Registry (Updated to include profile fields: full_name, email, birthdate)
+            String sqlS = "SELECT u.user_id, u.username, u.roll_no, u.full_name, u.email, u.birthdate, w.balance FROM users u " +
                           "LEFT JOIN wallets w ON u.user_id = w.student_id " +
                           "WHERE u.school_id = ? AND u.role = 'student' ORDER BY u.roll_no ASC";
             try (PreparedStatement pst2 = conn.prepareStatement(sqlS)) {
                 pst2.setInt(1, teacher.getSchoolId());
                 ResultSet rs2 = pst2.executeQuery();
                 while(rs2.next()){
-                    students.add(new User(rs2.getInt("user_id"), rs2.getString("username"), "student", 
-                                teacher.getSchoolId(), rs2.getDouble("balance"), rs2.getString("roll_no")));
+                    // Using the new User constructor that supports profile details
+                    students.add(new User(
+                        rs2.getInt("user_id"), 
+                        rs2.getString("username"), 
+                        "student", 
+                        teacher.getSchoolId(), 
+                        rs2.getDouble("balance"), 
+                        rs2.getString("roll_no"),
+                        rs2.getString("full_name"),
+                        rs2.getString("email"),
+                        rs2.getString("birthdate")
+                    ));
                 }
             }
 
@@ -87,21 +97,33 @@ public class ManageStudentsServlet extends HttpServlet {
                 }
 
                 String[] lines = rawData.split("\\r?\\n");
-                try (PreparedStatement pst = conn.prepareStatement("INSERT INTO users (username, password, role, school_id, roll_no) VALUES (?, ?, 'student', ?, ?)")) {
+                // UPDATED SQL: Includes full_name and email (birthdate stays NULL for the student to set later)
+                String sql = "INSERT INTO users (username, password, role, school_id, roll_no, email, full_name, must_change_password) " +
+                             "VALUES (?, ?, 'student', ?, ?, ?, ?, TRUE)";
+                
+                try (PreparedStatement pst = conn.prepareStatement(sql)) {
                     for (String line : lines) {
                         String[] parts = line.split(",");
+                        // Expected Format: Full Name, Roll No, Email
                         if (parts.length >= 2) {
-                            String fName = parts[0].trim().split(" ")[0].toLowerCase();
+                            String fullName = parts[0].trim();
                             String roll = parts[1].trim();
-                            pst.setString(1, fName + "." + roll + "@" + schoolPrefix + ".vces");
-                            pst.setString(2, fName + "@" + roll);
+                            String email = (parts.length >= 3) ? parts[2].trim() : null;
+                            
+                            // credential generation logic
+                            String fNameForUser = fullName.split(" ")[0].toLowerCase();
+                            pst.setString(1, fNameForUser + "." + roll + "@" + schoolPrefix + ".vces"); 
+                            pst.setString(2, fNameForUser + "@" + roll); 
                             pst.setInt(3, teacher.getSchoolId());
                             pst.setString(4, roll);
+                            pst.setString(5, email);
+                            pst.setString(6, fullName);
                             pst.addBatch();
                         }
                     }
                     pst.executeBatch();
                 }
+                
                 // Initialize Wallets at $0.00
                 try (Statement stmt = conn.createStatement()) {
                     stmt.executeUpdate("INSERT INTO wallets (student_id, balance, school_id) SELECT user_id, 0.0, school_id FROM users WHERE role = 'student' AND user_id NOT IN (SELECT student_id FROM wallets)");
@@ -122,13 +144,14 @@ public class ManageStudentsServlet extends HttpServlet {
             } else if ("terminate".equals(action)) {
                 String[] ids = request.getParameterValues("studentIds");
                 if (ids != null) {
+                    // ON DELETE CASCADE ensures wallets and class links are wiped automatically
                     try (PreparedStatement pst = conn.prepareStatement("DELETE FROM users WHERE user_id = ? AND school_id = ?")) {
                         for (String sId : ids) {
                             try { 
                                 pst.setInt(1, Integer.parseInt(sId)); 
                                 pst.setInt(2, teacher.getSchoolId()); 
                                 pst.addBatch(); 
-                            } catch (Exception e) { continue; } // Skips "on" from Select All
+                            } catch (Exception e) { continue; }
                         }
                         pst.executeBatch();
                     }
@@ -136,6 +159,9 @@ public class ManageStudentsServlet extends HttpServlet {
             }
             conn.commit();
             response.sendRedirect("manageStudents?success=1");
-        } catch (SQLException e) { e.printStackTrace(); response.sendRedirect("manageStudents?error=1"); }
+        } catch (SQLException e) { 
+            e.printStackTrace(); 
+            response.sendRedirect("manageStudents?error=1"); 
+        }
     }
 }

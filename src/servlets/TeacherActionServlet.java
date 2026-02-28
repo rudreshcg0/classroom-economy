@@ -25,19 +25,21 @@ public class TeacherActionServlet extends HttpServlet {
         try (Connection conn = DBConnection.getConnection()) {
             conn.setAutoCommit(false); 
 
-            // --- NEW: Student Creation Logic ---
+          // --- NEW: Student Creation Logic ---
             if ("addStudent".equals(action)) {
                 String studentUser = request.getParameter("username");
                 String studentPass = request.getParameter("password");
                 String rollNo = request.getParameter("rollNo");
+                String email = request.getParameter("email"); // Added email parameter
 
-                // UPDATED SQL: Set must_change_password to TRUE for new students
-                String sql = "INSERT INTO users (username, password, role, school_id, roll_no, must_change_password) VALUES (?, ?, 'student', ?, ?, TRUE)";
+                // UPDATED SQL: Added email column and one extra '?'
+                String sql = "INSERT INTO users (username, password, role, school_id, roll_no, email, must_change_password) VALUES (?, ?, 'student', ?, ?, ?, TRUE)";
                 try (PreparedStatement pst = conn.prepareStatement(sql)) {
                     pst.setString(1, studentUser);
                     pst.setString(2, studentPass);
                     pst.setInt(3, teacher.getSchoolId());
                     pst.setString(4, rollNo);
+                    pst.setString(5, email); // Set the email value
                     pst.executeUpdate();
                 }
                 conn.commit();

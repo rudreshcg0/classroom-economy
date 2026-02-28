@@ -164,7 +164,7 @@
         </form>
 
         <div class="links">
-            <a href="forgot-password.jsp">Forgot Password?</a>
+            <a href="forgot_password.jsp">Forgot Password?</a>
         </div>
     </div>
 </body>

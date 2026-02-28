@@ -43,7 +43,8 @@
                 <h3>New Registration</h3>
                 <form action="manageStudents" method="POST">
                     <input type="hidden" name="action" value="register">
-                    <textarea name="studentData" placeholder="Name, Roll No (One per line)" required style="height: 200px;"></textarea>
+                    <p style="font-size: 0.85rem; color: #636e72; margin-bottom: 5px;">Format: <strong>Name, Roll No, Personal Email</strong></p>
+                    <textarea name="studentData" placeholder="Rudresh, 101, rudresh@example.com" required style="height: 200px;"></textarea>
                     <button type="submit" class="btn btn-primary">Process Registration</button>
                 </form>
             </div>
@@ -136,7 +137,6 @@ function switchTab(mode) {
     document.querySelectorAll('.tab-btn').forEach((b, i) => b.classList.toggle('active', (i === 0 && mode === 'add') || (i === 1 && mode === 'remove')));
 }
 
-// Enrollment Select All
 function filterEnrollList() {
     const q = document.getElementById('enrollSearch').value.toLowerCase();
     document.querySelectorAll('.enroll-item').forEach(item => item.style.display = item.innerText.toLowerCase().includes(q) ? "block" : "none");
@@ -147,7 +147,6 @@ function toggleEnrollAll(master) {
     });
 }
 
-// Registry Select All
 function applyRegistryFilter() {
     const classId = document.getElementById('classFilter').value;
     const search = document.getElementById('registrySearch').value.toLowerCase();
@@ -183,4 +182,4 @@ function executeRegistryAction() {
 }
 </script>
 </body>
-</html> 
+</html>

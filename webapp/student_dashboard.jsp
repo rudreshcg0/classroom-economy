@@ -1,5 +1,16 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ page import="java.util.*, models.User" %>
+<%
+    // Security Check: Ensure user is logged in
+    User userObj = (User) session.getAttribute("user");
+    if (userObj == null) {
+        response.sendRedirect("login.jsp");
+        return;
+    }
+    // Null-safe name for the avatar
+    String fullName = (userObj.getFullName() != null && !userObj.getFullName().isEmpty()) ? userObj.getFullName() : "Student";
+    char avatarLetter = fullName.charAt(0);
+%>
 <!DOCTYPE html>
 <html>
 <head>
@@ -10,7 +21,7 @@
     <style>
         body { font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; background: #f8fafc; overflow-x: hidden; }
         .sidebar { width: 260px; background: #1e293b; color: white; height: 100vh; padding: 25px; position: fixed; z-index: 10; }
-        .sidebar h2 { color: #10b981; margin-bottom: 30px; }
+        .sidebar h2 { color: #10b981; margin-bottom: 20px; }
         .nav-item { padding: 12px; cursor: pointer; border-radius: 8px; margin-bottom: 5px; color: #94a3b8; display: block; text-decoration: none; transition: 0.3s; }
         .nav-item.active { background: #334155; color: white; }
         .main { margin-left: 285px; padding: 40px; width: calc(100% - 285px); }
@@ -25,6 +36,7 @@
         .full-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.98); z-index: 9999; flex-direction: column; align-items: center; justify-content: center; backdrop-filter: blur(8px); }
         table { width: 100%; border-collapse: collapse; }
         th, td { padding: 12px; border-bottom: 1px solid #f1f5f9; text-align: left; }
+        .avatar-circle { width: 60px; height: 60px; background: #10b981; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; }
         .search-bar { margin-bottom: 15px; padding: 10px; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 14px; width: 100%; box-sizing: border-box; }
         .toggle-btn { background: #64748b; margin-bottom: 20px; width: auto; padding: 8px 16px; font-size: 13px; }
     </style>
@@ -33,9 +45,22 @@
 
 <div class="sidebar">
     <h2>VCES Pay</h2>
+    
+    <div style="padding: 10px; background: #0f172a; border-radius: 12px; margin-bottom: 20px; text-align: center;">
+        <div class="avatar-circle" style="margin: 0 auto 10px;">
+            <%= avatarLetter %>
+        </div>
+        <div style="font-weight: bold; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+            <%= fullName %>
+        </div>
+        <small style="color: #64748b;">ID: ${sessionScope.user.rollNo}</small>
+    </div>
+
     <div class="nav-item active" onclick="openTab(event, 'home')">🏠 Dashboard</div>
     <div class="nav-item" onclick="openTab(event, 'pay')">💸 Pay & Request</div>
     <div class="nav-item" onclick="openTab(event, 'shop')">🛒 Marketplace</div>
+    <div class="nav-item" onclick="openTab(event, 'profile')">👤 My Profile</div>
+    
     <a href="login.jsp" class="nav-item" style="color: #f87171; margin-top: 30px;">Logout</a>
 </div>
 
@@ -44,7 +69,7 @@
         <div class="balance-card">
             <small>WALLET BALANCE</small>
             <h1 style="margin: 5px 0; font-size: 42px;">$${balance != null ? balance : '0.00'}</h1>
-            <p style="margin: 0; opacity: 0.8;">Roll No: ${rollNo}</p>
+            <p style="margin: 0; opacity: 0.8;">Welcome back, <%= fullName %>!</p>
         </div>
 
         <div class="card">
@@ -162,16 +187,51 @@
             </div>
         </div>
     </div>
+
+    <div id="profile" class="tab">
+        <h1>My Profile</h1>
+        <div class="card">
+            <form action="updateProfile" method="POST">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div>
+                        <label style="font-weight: bold; color: #64748b; font-size: 13px;">FULL NAME</label>
+                        <input type="text" value="${sessionScope.user.fullName}" disabled style="background: #f1f5f9;">
+                    </div>
+                    <div>
+                        <label style="font-weight: bold; color: #64748b; font-size: 13px;">ROLL NUMBER</label>
+                        <input type="text" value="${sessionScope.user.rollNo}" disabled style="background: #f1f5f9;">
+                    </div>
+                    <div>
+                        <label style="font-weight: bold; color: #64748b; font-size: 13px;">EMAIL ADDRESS</label>
+                        <input type="text" value="${sessionScope.user.email}" disabled style="background: #f1f5f9;">
+                    </div>
+                    <div>
+                        <label style="font-weight: bold; color: #64748b; font-size: 13px;">SYSTEM USERNAME</label>
+                        <input type="text" value="${sessionScope.user.username}" disabled style="background: #f1f5f9;">
+                    </div>
+                    <div>
+                        <label style="font-weight: bold; color: #10b981; font-size: 13px;">BIRTHDATE</label>
+                        <input type="date" name="birthdate" value="${sessionScope.user.birthdate}" required>
+                    </div>
+                </div>
+                <div style="margin-top: 20px; border-top: 1px solid #f1f5f9; padding-top: 20px;">
+                    <button type="submit" class="btn" style="background: #10b981; width: auto; padding: 12px 40px;">Save</button>
+                    <p style="font-size: 12px; color: #94a3b8; margin-top: 10px;">Note: Name and Email can only be changed by your teacher.</p>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 
 <div id="successOverlay" class="full-overlay">
     <lottie-player src="https://assets10.lottiefiles.com/packages/lf20_afwjhpyv.json" background="transparent" speed="1" style="width: 300px; height: 300px;" autoplay></lottie-player>
-    <h2 style="color:#10b981; font-size:28px; margin-top:-20px;">Payment Successful</h2>
+    <h2 style="color:#10b981; font-size:28px; margin-top:-20px;">Success!</h2>
     <button onclick="closePopups()" class="btn" style="background:#1e293b; width:180px; margin-top:30px;">Done</button>
 </div>
+
 <div id="errorOverlay" class="full-overlay">
     <lottie-player src="https://assets10.lottiefiles.com/packages/lf20_ghfp8v9f.json" background="transparent" speed="1" style="width: 300px; height: 300px;" autoplay></lottie-player>
-    <h2 style="color:#ef4444; font-size:28px; margin-top:-20px;">Transaction Failed</h2>
+    <h2 style="color:#ef4444; font-size:28px; margin-top:-20px;">Failed</h2>
     <p id="errorTxt" style="color:#64748b;">Insufficient balance or system error.</p>
     <button onclick="closePopups()" class="btn" style="background:#ef4444; width:180px; margin-top:30px;">Try Again</button>
 </div>
@@ -221,8 +281,10 @@
         });
     }
 
+    // ADDED: Real-time Stock Updater
     function updateStock() {
         fetch('getMarketStock').then(res => res.text()).then(data => {
+            if(!data) return;
             data.split(',').forEach(item => {
                 if (!item) return;
                 const [id, stock] = item.split(':');
@@ -239,11 +301,12 @@
         });
     }
 
+    // Auto-refresh data every 5 seconds
     setInterval(() => { updateBalance(); updateStock(); }, 5000);
 
     window.onload = function() {
         const params = new URLSearchParams(window.location.search);
-        if (params.has('success')) {
+        if (params.has('success') || params.has('profileUpdated')) {
             document.getElementById('successOverlay').style.display = 'flex';
             document.getElementById('successSound').play();
             confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
@@ -257,7 +320,9 @@
 
     function closePopups() {
         const url = new URL(window.location);
-        url.searchParams.delete('success'); url.searchParams.delete('error');
+        url.searchParams.delete('success'); 
+        url.searchParams.delete('error'); 
+        url.searchParams.delete('profileUpdated');
         window.history.pushState({}, '', url);
         location.reload();
     }

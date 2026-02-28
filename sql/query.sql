@@ -116,3 +116,51 @@ ALTER TABLE users ADD COLUMN must_change_password BOOLEAN DEFAULT TRUE;
 UPDATE users SET must_change_password = FALSE WHERE role = 'platform_root';
 
 ALTER TABLE users ADD COLUMN email VARCHAR(255);
+
+-- Fix the specific error regarding Marketplace Orders
+ALTER TABLE marketplace_orders 
+DROP CONSTRAINT IF EXISTS marketplace_orders_student_id_fkey;
+
+ALTER TABLE marketplace_orders
+ADD CONSTRAINT marketplace_orders_student_id_fkey 
+FOREIGN KEY (student_id) REFERENCES users(user_id) ON DELETE CASCADE;
+
+-- Also apply to Transactions (if not already done)
+ALTER TABLE transactions 
+DROP CONSTRAINT IF EXISTS transactions_receiver_id_fkey;
+
+ALTER TABLE transactions
+ADD CONSTRAINT transactions_receiver_id_fkey 
+FOREIGN KEY (receiver_id) REFERENCES users(user_id) ON DELETE CASCADE;
+
+-- 1. FIX PAYMENT REQUESTS (Specifically mentioned in your last error log)
+ALTER TABLE payment_requests 
+DROP CONSTRAINT IF EXISTS payment_requests_sender_id_fkey,
+DROP CONSTRAINT IF EXISTS payment_requests_receiver_id_fkey;
+
+ALTER TABLE payment_requests
+ADD CONSTRAINT payment_requests_sender_id_fkey 
+FOREIGN KEY (sender_id) REFERENCES users(user_id) ON DELETE CASCADE,
+ADD CONSTRAINT payment_requests_receiver_id_fkey 
+FOREIGN KEY (receiver_id) REFERENCES users(user_id) ON DELETE CASCADE;
+
+-- 2. FIX ATTENDANCE (If a student has been marked present, this will block deletion)
+ALTER TABLE attendance 
+DROP CONSTRAINT IF EXISTS attendance_student_id_fkey;
+
+ALTER TABLE attendance
+ADD CONSTRAINT attendance_student_id_fkey 
+FOREIGN KEY (student_id) REFERENCES users(user_id) ON DELETE CASCADE;
+
+-- 3. FIX MARKETPLACE ITEMS (If you ever delete a TEACHER, this is required)
+ALTER TABLE marketplace_items 
+DROP CONSTRAINT IF EXISTS marketplace_items_teacher_id_fkey;
+
+ALTER TABLE marketplace_items
+ADD CONSTRAINT marketplace_items_teacher_id_fkey 
+FOREIGN KEY (teacher_id) REFERENCES users(user_id) ON DELETE CASCADE;
+ALTER TABLE users ADD COLUMN full_name VARCHAR(100);
+ALTER TABLE users ADD COLUMN birthdate DATE;
+
+ALTER TABLE users ADD COLUMN otp_code VARCHAR(6);
+ALTER TABLE users ADD COLUMN otp_expiry TIMESTAMP;
