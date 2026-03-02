@@ -3,23 +3,7 @@
 <html>
 <head>
     <title>Mark Attendance - VCES</title>
-    <style>
-        body { font-family: 'Segoe UI', sans-serif; padding: 40px; background: #f4f7f6; }
-        .container { max-width: 900px; margin: auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        .header { border-bottom: 2px solid #eee; margin-bottom: 20px; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; }
-        th { background: #3182ce; color: white; }
-        
-        /* Keyboard Navigation Styles */
-        .attendance-row { transition: background-color 0.1s; border-left: 5px solid transparent; }
-        .kb-active { background-color: #ebf8ff !important; border-left: 5px solid #3182ce !important; outline: none; }
-        .row-present { background-color: #f0fff4 !important; }
-        
-        .btn-pay { background: #38a169; color: white; border: none; padding: 15px 30px; border-radius: 8px; cursor: pointer; width: 100%; font-size: 16px; font-weight: bold; margin-top: 20px; }
-        .btn-pay:hover { background: #2f855a; }
-        .hint-box { background: #edf2f7; padding: 10px; border-radius: 8px; font-size: 13px; margin-bottom: 15px; color: #4a5568; }
-    </style>
+    <link rel="stylesheet" href="${pageContext.request.contextPath}/css/mark_attendance.css">
 </head>
 <body>
 
@@ -84,69 +68,6 @@
     </form>
 </div>
 
-<script>
-// 1. SELECT ALL LOGIC
-function toggleAllAttendance(master) {
-    const checkboxes = document.querySelectorAll('.attendance-check');
-    checkboxes.forEach(cb => {
-        cb.checked = master.checked;
-        const row = cb.closest('.attendance-row');
-        if (cb.checked) row.classList.add('row-present');
-        else row.classList.remove('row-present');
-    });
-}
-
-// 2. KEYBOARD NAVIGATION LOGIC
-document.addEventListener('keydown', function(e) {
-    const rows = Array.from(document.querySelectorAll('.attendance-row'));
-    let activeRow = document.querySelector('.kb-active');
-    let index = rows.indexOf(activeRow);
-
-    if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        if (index < rows.length - 1) {
-            if (activeRow) activeRow.classList.remove('kb-active');
-            rows[index + 1].classList.add('kb-active');
-            rows[index + 1].scrollIntoView({ block: 'center', behavior: 'smooth' });
-        }
-    } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        if (index > 0) {
-            if (activeRow) activeRow.classList.remove('kb-active');
-            rows[index - 1].classList.add('kb-active');
-            rows[index - 1].scrollIntoView({ block: 'center', behavior: 'smooth' });
-        }
-    } else if (e.key === ' ') { // Spacebar to toggle
-        e.preventDefault();
-        if (activeRow) {
-            const cb = activeRow.querySelector('.attendance-check');
-            cb.checked = !cb.checked;
-            if (cb.checked) activeRow.classList.add('row-present');
-            else activeRow.classList.remove('row-present');
-        }
-    } else if (e.key === 'Enter') { // Enter to trigger submit
-        if (confirm("Process payments for all selected students?")) {
-            document.getElementById('attendanceForm').submit();
-        }
-    }
-});
-
-// Initialize highlight on the first row when page loads
-window.onload = () => {
-    const firstRow = document.querySelector('.attendance-row');
-    if (firstRow) firstRow.classList.add('kb-active');
-};
-
-// Add click-to-focus for mouse users
-document.querySelectorAll('.attendance-row').forEach(row => {
-    row.addEventListener('click', function(e) {
-        if (e.target.type !== 'checkbox') {
-            document.querySelector('.kb-active')?.classList.remove('kb-active');
-            this.classList.add('kb-active');
-        }
-    });
-});
-</script>
-
+<script src="${pageContext.request.contextPath}/js/mark_attendance.js"></script>
 </body>
 </html>

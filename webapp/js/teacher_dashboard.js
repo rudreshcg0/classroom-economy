@@ -56,4 +56,13 @@ window.onload = function () {
         const btn = document.querySelector(`[onclick*="${tabId}"]`);
         if(btn) showTab(tabId, btn);
     }
+
+    // Attendance: enable launch button when a class is selected
+    const classSelect = document.getElementById('attendanceClassSelect');
+    const launchBtn = document.getElementById('launchAttendanceBtn');
+    if (classSelect && launchBtn) {
+        const handler = () => { launchBtn.disabled = classSelect.value === ''; };
+        classSelect.addEventListener('change', handler);
+        handler();
+    }
 };

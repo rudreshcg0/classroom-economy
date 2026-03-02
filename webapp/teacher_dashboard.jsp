@@ -41,15 +41,17 @@
         <h1>Attendance Console</h1>
         <div class="card">
             <h3>📝 Process Session Salaries</h3>
-            <form action="markAttendance" method="GET">
-                <select name="classId" required>
+            <form action="markAttendance" method="GET" id="attendanceLaunchForm">
+                <select name="classId" id="attendanceClassSelect" required>
                     <option value="">-- Choose Class --</option>
                     <% List<Map<String, Object>> cls = (List<Map<String, Object>>) request.getAttribute("classes");
-                       if (cls != null) for (Map<String, Object> c : cls) { %>
+                       if (cls != null && !cls.isEmpty()) { for (Map<String, Object> c : cls) { %>
                         <option value="<%= c.get("id") %>"><%= c.get("name") %></option>
+                    <% } } else { %>
+                        <option value="" disabled>No classes assigned to you</option>
                     <% } %>
                 </select>
-                <button type="submit" class="btn-submit" style="width: 100%;">Launch Attendance Console</button>
+                <button type="submit" id="launchAttendanceBtn" class="btn-submit" style="width: 100%;" disabled>Launch Attendance Console</button>
             </form>
         </div>
     </div>
