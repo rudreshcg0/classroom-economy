@@ -109,7 +109,7 @@
                             <td style="padding: 14px 8px; border-bottom: 1px solid #edf2f7; font-size: 0.9rem; color: #64748b;">
                                 <%= h.get("date") %>
                             </td>
-                            <td s<td style="padding: 14px 8px; font-weight: 700; color: <%= amountColor %>;">
+                            <td style="padding: 14px 8px; font-weight: 700; color: <%= amountColor %>;">
                                 <%= h.get("amount").toString().startsWith("-") ? "" : "+" %>$<%= h.get("amount") %>
                             </td>
                             <td style="padding: 14px 8px; border-bottom: 1px solid #edf2f7;">

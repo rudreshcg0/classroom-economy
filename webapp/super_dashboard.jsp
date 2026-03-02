@@ -3,7 +3,7 @@
 <%
     User user = (User) session.getAttribute("user");
     if (user == null || (!user.getRole().equals("platform_root"))) {
-        response.sendRedirect("login.html");
+        response.sendRedirect("login.jsp");
         return;
     }
 %>
@@ -62,7 +62,7 @@
                             <td><%= (adminName != null) ? "👤 " + adminName : "<em>Unassigned</em>" %></td>
                             <td>
                                 <div style="display: flex; gap: 8px;">
-                                    <button onclick="editSchool(<%= rs.getInt("school_id") %>, '<%= rs.getString("school_name") %>')" class="btn btn-edit">✏️ Rename</button>
+                                    <button onclick="editSchool(<%= rs.getInt("school_id") %>, '<%= rs.getString("school_name").replace("'", "\\'") %>')" class="btn btn-edit">✏️ Rename</button>
                                     <form action="superAdminAction" method="POST" onsubmit="return confirm('DELETE SCHOOL? This wipes all data.')">
                                         <input type="hidden" name="action" value="deleteSchool">
                                         <input type="hidden" name="schoolId" value="<%= rs.getInt("school_id") %>">
