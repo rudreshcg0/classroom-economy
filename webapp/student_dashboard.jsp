@@ -53,7 +53,7 @@
         <div style="font-weight: bold; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
             <%= fullName %>
         </div>
-        <small style="color: #64748b;">ID: ${sessionScope.user.rollNo}</small>
+        <small style="color: #64748b;">Roll No: ${sessionScope.user.rollNo}</small>
     </div>
 
     <div class="nav-item active" onclick="openTab(event, 'home')">🏠 Dashboard</div>

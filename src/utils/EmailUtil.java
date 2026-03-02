@@ -1,41 +1,44 @@
 package utils;
 
-import java.util.Properties;
-import jakarta.mail.*;
-import jakarta.mail.internet.*;
-import jakarta.activation.*; // Ensure the angus-activation JAR is available
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 
 public class EmailUtil {
-    public static void sendOTP(String toEmail, String otp) throws MessagingException {
-        // Manually register handlers to avoid ClassNotFoundException in JDK 25
-        MailcapCommandMap mc = (MailcapCommandMap) CommandMap.getDefaultCommandMap();
-        mc.addMailcap("text/plain;; x-java-content-handler=org.eclipse.angus.activation.handlers.TextPlainHandler");
-        CommandMap.setDefaultCommandMap(mc);
+    public static void sendOTP(String toEmail, String otp) throws Exception {
+        // 1. Setup the API URL and your Key
+        String apiKey = "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";
+        URL url = new URL("https://api.brevo.com/v3/smtp/email");
+        
+        // 2. Open Connection
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("POST");
+        conn.setRequestProperty("api-key", apiKey);
+        conn.setRequestProperty("Content-Type", "application/json");
+        conn.setDoOutput(true);
 
-        final String from = "vces.system.noreply@gmail.com"; 
-        final String password = "rbemfasonakubsgg"; 
+        // 3. Create the JSON payload
+        String jsonInputString = "{"
+            + "\"sender\":{\"name\":\"VCES System\",\"email\":\"vces.system.noreply@gmail.com\"},"
+            + "\"to\":[{\"email\":\"" + toEmail + "\"}],"
+            + "\"subject\":\"Your Security Code\","
+            + "\"textContent\":\"Your OTP is: " + otp + "\""
+            + "}";
 
-        Properties props = new Properties();
-        props.put("mail.smtp.auth", "true");
-        props.put("mail.smtp.starttls.enable", "true");
-        props.put("mail.smtp.host", "smtp.gmail.com");
-        props.put("mail.smtp.port", "587");
+        // 4. Send the Request
+        try(OutputStream os = conn.getOutputStream()) {
+            byte[] input = jsonInputString.getBytes(StandardCharsets.UTF_8);
+            os.write(input, 0, input.length);			
+        }
 
-        Session session = Session.getInstance(props, new Authenticator() {
-            @Override
-            protected PasswordAuthentication getPasswordAuthentication() {
-                return new PasswordAuthentication(from, password);
-            }
-        });
-
-        Message message = new MimeMessage(session);
-        message.setFrom(new InternetAddress(from));
-        message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(toEmail));
-        message.setSubject("VCES Security: Reset Code");
-        message.setText("Your reset code is: " + otp);
-
-        System.out.println("DEBUG: Attempting to send email to " + toEmail);
-        Transport.send(message);
-        System.out.println("DEBUG: Email sent successfully!");
+        // 5. Check Response
+        int code = conn.getResponseCode();
+        if (code >= 200 && code <= 299) {
+            System.out.println("DEBUG: Email sent via API successfully!");
+        } else {
+            System.out.println("DEBUG: API Error Code: " + code);
+            throw new Exception("Email API failed with code: " + code);
+        }
     }
 }
