@@ -1,0 +1,43 @@
+body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; margin: 0; padding: 20px; color: #334155; }
+.container { max-width: 1100px; margin: auto; }
+
+/* Header Styling */
+.header-main { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; background: #1e293b; padding: 20px 30px; border-radius: 12px; color: white; }
+.header-main h2 { margin: 0; font-size: 24px; color: #38bdf8; }
+.logout-link { color: #f87171; text-decoration: none; font-weight: bold; margin-left: 15px; }
+
+/* Tab Navigation */
+.tab-navigation { display: flex; gap: 10px; margin-bottom: 25px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+.tab-btn { padding: 12px 24px; border: none; background: #e2e8f0; color: #475569; font-weight: 600; border-radius: 8px; cursor: pointer; transition: 0.3s; }
+.tab-btn.active { background: #3182ce; color: white; box-shadow: 0 4px 6px rgba(49, 130, 206, 0.3); }
+.tab-btn:hover:not(.active) { background: #cbd5e1; }
+
+/* Section Visibility */
+.tab-content { display: none; }
+.tab-content.active { display: block; animation: fadeIn 0.4s ease; }
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Card & Forms */
+.card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+.card-center { max-width: 500px; margin: auto; }
+h3 { margin-top: 0; color: #1e293b; border-left: 4px solid #3182ce; padding-left: 10px; }
+
+input, select { padding: 12px; width: 100%; margin: 10px 0; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; }
+input:focus { outline: none; border-color: #3182ce; box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.1); }
+
+/* Buttons */
+.btn { padding: 10px 16px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; color: white; font-size: 13px; }
+.btn-save { background: #059669; width: 100%; font-size: 15px; padding: 14px; }
+.btn-edit { background: #3b82f6; }
+.btn-del { background: #ef4444; }
+.btn-orange { background: #f59e0b; }
+.btn:hover { opacity: 0.85; transform: translateY(-1px); }
+
+/* Table Styling */
+table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+th { text-align: left; padding: 14px; background: #f8fafc; color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid #e2e8f0; }
+td { padding: 16px 14px; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
+tr:hover { background: #f8fafc; }
+
+.search-box { padding: 10px 15px; width: 280px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; }

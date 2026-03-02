@@ -4,30 +4,20 @@
 <html>
 <head>
     <title>School Admin Hub</title>
-    <style>
-        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: #f8f9fa; display: flex; }
-        .sidebar { width: 260px; background: #1a202c; color: white; height: 100vh; padding: 25px; position: fixed; left: 0; top: 0; }
-        .sidebar a { display: block; color: #cbd5e0; text-decoration: none; padding: 12px; border-radius: 8px; margin-bottom: 5px; }
-        .sidebar a.active { background: #3182ce; color: white; }
-        .main-content { margin-left: 285px; padding: 30px; width: calc(100% - 320px); }
-        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 25px; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #edf2f7; }
-        .section-header { background: #f7fafc; padding: 10px; font-weight: bold; color: #4a5568; border-bottom: 2px solid #e2e8f0; margin-top: 15px; display: flex; justify-content: space-between; align-items: center; }
-        .search-mini { padding: 5px 10px; border-radius: 4px; border: 1px solid #ddd; font-size: 12px; width: 150px; }
-        input, select, .btn-main { padding: 10px; border-radius: 6px; border: 1px solid #ddd; width: 100%; margin-bottom: 10px; box-sizing: border-box;}
-        .btn-del { background: #e53e3e; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        .btn-unlink { background: #ed8936; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; }
-    </style>
+    <link rel="stylesheet" href="${pageContext.request.contextPath}/css/admin_dashboard.css">
 </head>
 <body>
 
-<% String currentView = (String)request.getAttribute("currentView"); 
-   String selectedClass = (String)request.getAttribute("selectedClassId"); %>
+<% 
+    String currentView = (String)request.getAttribute("currentView"); 
+    String selectedClass = (String)request.getAttribute("selectedClassId"); 
+    // Default to panel-register if no activeTab is provided in the URL
+    String activeTab = request.getParameter("activeTab") != null ? request.getParameter("activeTab") : "panel-register";
+%>
 
 <div class="sidebar">
     <h2>VCES Admin</h2>
+    <p style="color: #a0aec0; margin: 10px 0 0;">Admin: <strong>${sessionScope.user.username}</strong></p>
     <hr style="border:0.5px solid #4a5568;">
     <nav>
         <a href="adminDashboard?view=management" class="<%= "management".equals(currentView) ? "active" : "" %>">⚙️ Management</a>
@@ -41,7 +31,14 @@
     
     <% if ("management".equals(currentView)) { %>
         <h1>School Management</h1>
-        <div class="grid">
+
+        <div class="admin-actions">
+            <button type="button" class="btn-tab" data-target="panel-register">Register Staff</button>
+            <button type="button" class="btn-tab" data-target="panel-classlink">Class Setup & Linking</button>
+            <button type="button" class="btn-tab" data-target="panel-registry">Class & Enrollment Management</button>
+        </div>
+
+        <div id="panel-register" class="action-panel hidden">
             <div class="card">
                 <h3>Register Staff</h3>
                 <form action="adminAction" method="POST">
@@ -51,6 +48,9 @@
                     <button type="submit" class="btn-main" style="background:#3182ce; color:white;">Add Teacher Account</button>
                 </form>
             </div>
+        </div>
+
+        <div id="panel-classlink" class="action-panel hidden">
             <div class="card">
                 <h3>Class Setup & Linking</h3>
                 <form action="adminAction" method="POST">
@@ -61,7 +61,7 @@
                     </div>
                     <button type="submit" class="btn-main" style="background:#38a169; color:white;">Create New Class</button>
                 </form>
-                <form action="adminAction" method="POST" style="border-top: 1px solid #eee; padding-top: 10px;">
+                <form action="adminAction" method="POST" style="border-top: 1px solid #eee; padding-top: 20px; margin-top: 10px;">
                     <input type="hidden" name="action" value="assignTeacher">
                     <select name="classId" required>
                         <option value="">Select Class</option>
@@ -79,148 +79,79 @@
                     </select>
                     <button type="submit" class="btn-main" style="background:#805ad5; color:white;">Assign Teacher to Class</button>
                 </form>
+
+                <form action="adminAction" method="POST" onsubmit="return confirm('Delete this class permanently? This cannot be undone.');" style="border-top: 1px solid #eee; padding-top: 20px; margin-top: 10px;">
+                    <input type="hidden" name="action" value="deleteClass">
+                    <select name="id" required>
+                        <option value="">Select Class to Delete</option>
+                        <% if(cl != null) for(Map<String, Object> c : cl) { %>
+                            <option value="<%= c.get("id") %>"><%= c.get("name") %></option>
+                        <% } %>
+                    </select>
+                    <input type="hidden" name="view" value="management">
+                    <input type="hidden" name="activeTab" value="panel-classlink">
+                    <button type="submit" class="btn-del" style="width: 100%; margin-top: 8px;">Delete Class</button>
+                </form>
             </div>
         </div>
 
-        <div class="card">
-            <h3>Registry Management</h3>
-            <form action="adminDashboard" method="GET">
-                <input type="hidden" name="view" value="management">
-                <select name="classId" onchange="this.form.submit()">
-                    <option value="">-- Choose Class to Manage --</option>
-                    <% if(cl != null) for(Map<String, Object> c : cl) { %>
-                        <option value="<%= c.get("id") %>" <%= (c.get("id").toString().equals(selectedClass)) ? "selected" : "" %>><%= c.get("name") %></option>
-                    <% } %>
-                </select>
-            </form>
-
-            <% if(selectedClass != null) { %>
-                <form action="adminAction" method="POST">
-                    <input type="hidden" name="action" value="deleteUser">
-                    
-                    <div class="section-header">
-                        Assigned Staff
-                        <input type="text" class="search-mini" onkeyup="filterTable(this, 'teacherTable')" placeholder="Search teachers...">
-                    </div>
-                    <table id="teacherTable">
-                        <% List<User> ct = (List<User>)request.getAttribute("classTeachers");
-                           if(ct != null && !ct.isEmpty()) { for(User t : ct) { %>
-                            <tr>
-                                <td width="30px"><input type="checkbox" name="id" value="<%= t.getId() %>"></td>
-                                <td><strong><%= t.getUsername() %></strong></td>
-                                <td align="right">
-                                    <button type="button" class="btn-unlink" onclick="unlinkTeacher('<%= selectedClass %>')">Unlink from Class</button>
-                                </td>
-                            </tr>
-                        <% } } else { %> <tr><td colspan="3">No teachers assigned.</td></tr> <% } %>
-                    </table>
-
-                    <div class="section-header">
-                        Enrolled Roster
-                        <input type="text" class="search-mini" onkeyup="filterTable(this, 'studentTable')" placeholder="Search students...">
-                    </div>
-                    <table id="studentTable">
-                        <% List<User> cs = (List<User>)request.getAttribute("classStudents");
-                           if(cs != null && !cs.isEmpty()) { for(User s : cs) { %>
-                            <tr>
-                                <td width="30px"><input type="checkbox" name="id" value="<%= s.getId() %>"></td>
-                                <td><%= s.getUsername() %></td>
-                                <td align="right">Roll: <%= s.getRollNo() %></td>
-                            </tr>
-                        <% } } %>
-                    </table>
-                    <button type="submit" class="btn-del" style="margin-top:20px; width:100%;" onclick="return confirm('Delete selected accounts permanently?')">Terminate Selected Accounts</button>
+        <div id="panel-registry" class="action-panel hidden">
+            <div class="card">
+                <h3>Class & Enrollment Management</h3>
+                <form action="adminDashboard" method="GET" id="registryJump">
+                    <input type="hidden" name="view" value="management">
+                    <input type="hidden" name="activeTab" value="panel-registry">
+                    <select name="classId" onchange="this.form.submit()">
+                        <option value="">-- Choose Class to Manage --</option>
+                        <% if(cl != null) for(Map<String, Object> c : cl) { %>
+                            <option value="<%= c.get("id") %>" <%= (c.get("id").toString().equals(selectedClass)) ? "selected" : "" %>><%= c.get("name") %></option>
+                        <% } %>
+                    </select>
                 </form>
-            <% } %>
+
+                <% if(selectedClass != null) { %>
+                    <form action="adminAction" method="POST">
+                        <input type="hidden" name="action" value="deleteUser">
+                        <div class="section-header">Assigned Staff <input type="text" class="search-mini" onkeyup="filterTable(this, 'teacherTable')" placeholder="Search..."></div>
+                        <table id="teacherTable">
+                            <% List<User> ct = (List<User>)request.getAttribute("classTeachers");
+                               if(ct != null && !ct.isEmpty()) { for(User t : ct) { %>
+                                <tr>
+                                    <td width="30px"><input type="checkbox" name="id" value="<%= t.getId() %>"></td>
+                                    <td><strong><%= t.getUsername() %></strong></td>
+                                    <td align="right"><button type="button" class="btn-unlink" onclick="unlinkTeacher('<%= selectedClass %>')">Unlink</button></td>
+                                </tr>
+                            <% } } %>
+                        </table>
+                        <div class="section-header">Enrolled Roster <input type="text" class="search-mini" onkeyup="filterTable(this, 'studentTable')" placeholder="Search..."></div>
+                        <table id="studentTable">
+                            <% List<User> cs = (List<User>)request.getAttribute("classStudents");
+                               if(cs != null && !cs.isEmpty()) { for(User s : cs) { %>
+                                <tr>
+                                    <td width="30px"><input type="checkbox" name="id" value="<%= s.getId() %>"></td>
+                                    <td><%= s.getUsername() %></td>
+                                    <td align="right">Roll: <%= s.getRollNo() %></td>
+                                </tr>
+                            <% } } %>
+                        </table>
+                        <button type="submit" class="btn-del" style="margin-top:20px; width:100%;" onclick="return confirm('Terminate selected?')">Terminate Selected</button>
+                    </form>
+                <% } %>
+            </div>
         </div>
 
     <% } else { %>
-        <h1>Financial Audit Ledger</h1>
-        <div class="card">
-            <form action="adminDashboard" method="GET">
-                <input type="hidden" name="view" value="ledger">
-                <select name="classId" onchange="this.form.submit()">
-                    <option value="">-- Select Class to Audit --</option>
-                    <% List<Map<String, Object>> cl = (List<Map<String, Object>>)request.getAttribute("classList");
-                       if(cl != null) for(Map<String, Object> c : cl) { %>
-                        <option value="<%= c.get("id") %>" <%= (c.get("id").toString().equals(selectedClass)) ? "selected" : "" %>><%= c.get("name") %></option>
-                    <% } %>
-                </select>
-            </form>
-        </div>
-
-        <% if(selectedClass != null) { %>
-            <div class="grid">
-                <div class="card">
-                    <div class="section-header">
-                        Staff Ledger
-                        <input type="text" class="search-mini" onkeyup="filterTable(this, 'staffLedgerList')" placeholder="Filter staff...">
-                    </div>
-                    <table id="staffLedgerList">
-                        <% List<User> ct = (List<User>)request.getAttribute("classTeachers");
-                           if(ct != null) for(User t : ct) { %>
-                            <tr>
-                                <td><strong><%= t.getUsername() %></strong></td>
-                                <td align="right"><a href="adminDashboard?view=ledger&classId=<%= selectedClass %>&viewUserId=<%= t.getId() %>">Audit →</a></td>
-                            </tr>
-                        <% } %>
-                    </table>
-
-                    <div class="section-header">
-                        Student Ledger
-                        <input type="text" class="search-mini" onkeyup="filterTable(this, 'studentLedgerList')" placeholder="Filter students...">
-                    </div>
-                    <table id="studentLedgerList">
-                        <% List<User> cs = (List<User>)request.getAttribute("classStudents");
-                           if(cs != null) for(User s : cs) { %>
-                            <tr>
-                                <td><%= s.getUsername() %></td>
-                                <td align="right"><a href="adminDashboard?view=ledger&classId=<%= selectedClass %>&viewUserId=<%= s.getId() %>">View →</a></td>
-                            </tr>
-                        <% } %>
-                    </table>
-                </div>
-
-                <% if(request.getAttribute("history") != null) { %>
-                    <div class="card">
-                        <h3>Ledger: <%= request.getAttribute("targetName") %></h3>
-                        <table>
-                            <% List<Map<String, Object>> history = (List<Map<String, Object>>)request.getAttribute("history");
-                               for(Map<String, Object> h : history) { %>
-                                <tr>
-                                    <td><small><%= h.get("date") %></small></td>
-                                    <td><strong>$<%= h.get("amount") %></strong></td>
-                                    <td><%= h.get("type") %></td>
-                                </tr>
-                            <% } %>
-                        </table>
-                    </div>
-                <% } %>
-            </div>
-        <% } %>
+        <jsp:include page="includes/admin_ledger.jsp" /> 
     <% } %>
 </div>
 
 <form id="unlinkForm" action="adminAction" method="POST" style="display:none;">
     <input type="hidden" name="action" value="assignTeacher">
     <input type="hidden" name="classId" id="unlinkClassId">
-    <input type="hidden" name="teacherId" value="0"> </form>
+    <input type="hidden" name="teacherId" value="0">
+</form>
 
-<script>
-function filterTable(input, tableId) {
-    const q = input.value.toLowerCase();
-    const rows = document.querySelectorAll('#' + tableId + ' tr');
-    rows.forEach(row => {
-        row.style.display = row.innerText.toLowerCase().includes(q) ? "" : "none";
-    });
-}
-
-function unlinkTeacher(classId) {
-    if(confirm("Are you sure you want to remove this teacher from the class?")) {
-        document.getElementById('unlinkClassId').value = classId;
-        document.getElementById('unlinkForm').submit();
-    }
-}
-</script>
+<script>window.ACTIVE_TAB_ID = "<%= activeTab %>";</script>
+<script src="${pageContext.request.contextPath}/js/admin_dashboard.js"></script>
 </body>
 </html>
