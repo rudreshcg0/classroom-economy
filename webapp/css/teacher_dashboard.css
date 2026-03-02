@@ -1,0 +1,81 @@
+/* Global Layout */
+body { font-family: 'Segoe UI', sans-serif; margin: 0; background-color: #f0f2f5; display: flex; }
+
+/* Sidebar - Fixed structure */
+.sidebar { width: 260px; background: #1a202c; color: white; height: 100vh; padding: 25px; position: fixed; left: 0; top: 0; box-sizing: border-box; }
+.sidebar h2 { color: #63b3ed; margin-bottom: 30px; margin-top: 0; }
+
+/* Unified Sidebar Item Style */
+.sidebar-link { 
+    display: block; 
+    width: 100%;
+    background: transparent;
+    border: none;
+    text-align: left;
+    color: #cbd5e0; 
+    text-decoration: none; 
+    padding: 12px; 
+    border-radius: 8px; 
+    margin-bottom: 5px; 
+    transition: 0.3s; 
+    cursor: pointer; 
+    font-size: 14px;
+    box-sizing: border-box;
+}
+.sidebar-link:hover { background: #2d3748; color: white; }
+.sidebar-link.active { background: #3182ce; color: white; }
+.sidebar-link.logout { color: #fc8181; margin-top: 20px; border-top: 1px solid #4a5568; border-radius: 0; padding-top: 20px; }
+
+/* Main Content */
+.main-content { margin-left: 260px; padding: 40px; width: calc(100% - 260px); box-sizing: border-box; }
+
+/* Dashboard Components */
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+.card { background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 25px; }
+.balance-box { background: #ebf8ff; color: #2b6cb0; padding: 20px; border-radius: 10px; border-left: 5px solid #3182ce; margin-bottom: 25px; }
+.btn-submit { background-color: #38a169; color: white; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; width: auto; }
+.btn-submit:hover { opacity: 0.9; }
+
+/* Form Elements */
+input, select { padding: 12px; width: 100%; margin-bottom: 15px; border-radius: 8px; border: 1px solid #cbd5e0; box-sizing: border-box; }
+table { width: 100%; border-collapse: collapse; margin-top: 10px; text-align: left;}
+th, td { padding: 12px; border-bottom: 1px solid #edf2f7; }
+
+/* Badges & Utilities */
+.badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+.bg-active { background: #c6f6d5; color: #22543d; }
+.bg-low { background: #feebc8; color: #744210; }
+.bg-out { background: #fed7d7; color: #822727; }
+.search-container { position: relative; margin-bottom: 20px; }
+.search-container input { padding-left: 40px; border: 2px solid #e2e8f0; }
+.search-icon { position: absolute; left: 15px; top: 12px; color: #a0aec0; }
+.toggle-btn { background: #4a5568; margin-bottom: 20px; width: auto; padding: 8px 16px; color: white; border: none; border-radius: 8px; cursor: pointer; }
+
+/* Shared buttons (used in manage_students & ledger pages) */
+.btn { padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; color: #fff; width: 100%; }
+.btn-primary { background: #3b82f6; }
+.btn-warning { background: #8b5cf6; }
+.btn-danger { background: #ef4444; }
+
+/* Tabs (manage_students) */
+.nav-tabs { display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 2px solid #e2e8f0; }
+.tab-btn { padding: 12px 20px; border: none; background: none; cursor: pointer; font-weight: 600; color: #64748b; border-bottom: 3px solid transparent; }
+.tab-btn.active { color: #3182ce; border-bottom-color: #3182ce; }
+.hidden { display: none; }
+
+/* Utilities */
+.scroll-area { max-height: 250px; overflow-y: auto; border: 1px solid #e2e8f0; padding: 10px; border-radius: 8px; margin-top: 10px; }
+.checkbox-cell { width: 30px; text-align: center; }
+
+/* Ledger/search helpers */
+.breadcrumb { margin-bottom: 20px; font-size: 14px; color: #64748b; }
+.breadcrumb a { color: #3182ce; text-decoration: none; }
+.student-link { color: #3182ce; font-weight: 600; text-decoration: none; cursor: pointer; }
+.student-link:hover { text-decoration: underline; }
+.search-input { width: 100%; padding: 12px; border: 1px solid #cbd5e0; border-radius: 8px; margin-top: 10px; box-sizing: border-box; font-size: 14px; }
+.search-input:focus { outline: none; border-color: #3182ce; box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.1); }
+
+/* Ledger badges */
+.bg-salary { background: #c6f6d5; color: #22543d; }
+.bg-transfer { background: #bee3f8; color: #2b6cb0; }

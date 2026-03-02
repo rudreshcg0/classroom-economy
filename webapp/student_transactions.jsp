@@ -4,42 +4,21 @@
 <html>
 <head>
     <title>Financial Audit - VCES</title>
-    <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #f8f9fa; margin: 0; display: flex; }
-        .sidebar { width: 250px; background: #2d3436; color: white; height: 100vh; padding: 25px; position: fixed; }
-        .main-content { margin-left: 280px; padding: 30px; width: 100%; max-width: 1200px; }
-        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; }
-        .breadcrumb { margin-bottom: 20px; font-size: 14px; color: #636e72; }
-        .breadcrumb a { color: #0984e3; text-decoration: none; }
-        .student-link { color: #0984e3; font-weight: bold; text-decoration: none; cursor: pointer; }
-        .student-link:hover { text-decoration: underline; }
-        .badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
-        .bg-salary { background: #c6f6d5; color: #2f855a; }
-        .bg-transfer { background: #bee3f8; color: #2b6cb0; }
-        
-        /* New Styles for Search Bars */
-        .search-input { 
-            width: 100%; 
-            padding: 12px; 
-            border: 1px solid #cbd5e0; 
-            border-radius: 8px; 
-            margin-top: 10px;
-            box-sizing: border-box;
-            font-size: 14px;
-        }
-        .search-input:focus { outline: none; border-color: #3182ce; box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.1); }
-    </style>
+    <link rel="stylesheet" href="${pageContext.request.contextPath}/css/teacher_dashboard.css">
 </head>
 <body>
 
 <div class="sidebar">
-    <h2 style="color: #00cec9;">VCES Admin</h2>
-    <a href="teacherDashboard" style="color: #dfe6e9; text-decoration: none; display: block; margin: 15px 0;">🏠 Dashboard</a>
-    <a href="manageStudents" style="color: #dfe6e9; text-decoration: none; display: block; margin: 15px 0;">👥 Student Registry</a>
-    <a href="studentTransactions" style="color: white; font-weight: bold; text-decoration: none; display: block; margin: 15px 0; background: #0984e3; padding: 10px; border-radius: 8px;">💰 Financial Ledger</a>
-    <a href="login.jsp" style="color: #ff7675; text-decoration: none; display: block; margin-top: 30px;">Logout</a>
+    <h2>VCES Admin</h2>
+    <p style="color: #a0aec0; margin-bottom: 20px;">Teacher: <strong>${sessionScope.user.username}</strong></p>
+    <nav>
+        <a href="teacherDashboard" class="sidebar-link">🏠 Dashboard Overview</a>
+        <a href="markAttendance" class="sidebar-link">📝 Mark Attendance</a>
+        <a href="teacherDashboard?tab=marketplace" class="sidebar-link">🏪 Marketplace Manager</a>
+        <a href="manageStudents" class="sidebar-link">👥 Student Registry</a>
+        <a href="studentTransactions" class="sidebar-link active">💰 Financial Ledger</a>
+        <a href="login.jsp" class="sidebar-link logout">🚪 Logout</a>
+    </nav>
 </div>
 
 <div class="main-content">
@@ -111,12 +90,13 @@
     <% } %>
 </div>
 
+<script src="${pageContext.request.contextPath}/js/teacher_dashboard.js"></script>
 <script>
 // Search Students Logic
 function filterStudents() {
     const q = document.getElementById('studentSearch').value.toLowerCase();
     document.querySelectorAll('.student-row').forEach(row => {
-        row.style.display = row.innerText.toLowerCase().includes(q) ? "" : "none";
+        row.style.display = row.innerText.toLowerCase().includes(q) ? '' : 'none';
     });
 }
 
@@ -124,7 +104,7 @@ function filterStudents() {
 function filterTx() {
     const q = document.getElementById('txSearch').value.toLowerCase();
     document.querySelectorAll('.tx-row').forEach(row => {
-        row.style.display = row.innerText.toLowerCase().includes(q) ? "" : "none";
+        row.style.display = row.innerText.toLowerCase().includes(q) ? '' : 'none';
     });
 }
 </script>

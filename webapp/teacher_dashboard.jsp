@@ -1,49 +1,26 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
-<%@ page import="java.util.*, models.User, models.MarketplaceItem" %>
+<%@ page import="java.util.*, models.User" %>
 <!DOCTYPE html>
 <html>
 <head>
     <title>Teacher Hub - VCES Admin</title>
-    <style>
-        body { font-family: 'Segoe UI', sans-serif; margin: 0; background-color: #f0f2f5; display: flex; }
-        .sidebar { width: 260px; background: #1a202c; color: white; height: 100vh; padding: 25px; position: fixed; }
-        .sidebar h2 { color: #63b3ed; margin-bottom: 30px; }
-        .sidebar-link { display: block; color: #cbd5e0; text-decoration: none; padding: 12px; border-radius: 8px; margin-bottom: 10px; transition: 0.3s; cursor: pointer; }
-        .sidebar-link:hover { background: #2d3748; color: white; }
-        .sidebar-link.active { background: #3182ce; color: white; }
-        .main-content { margin-left: 310px; padding: 40px; width: calc(100% - 310px); }
-        .tab-panel { display: none; } .tab-panel.active { display: block; }
-        .card { background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 25px; }
-        .balance-box { background: #ebf8ff; color: #2b6cb0; padding: 20px; border-radius: 10px; border-left: 5px solid #3182ce; margin-bottom: 25px; }
-        .btn-submit { background-color: #38a169; color: white; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; }
-        .btn-submit:hover { opacity: 0.9; }
-        input, select { padding: 12px; width: 100%; margin-bottom: 15px; border-radius: 8px; border: 1px solid #cbd5e0; box-sizing: border-box; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; text-align: left;}
-        th, td { padding: 12px; border-bottom: 1px solid #edf2f7; }
-        .badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
-        .bg-active { background: #c6f6d5; color: #22543d; }
-        .bg-low { background: #feebc8; color: #744210; }
-        .bg-out { background: #fed7d7; color: #822727; }
-        .search-container { position: relative; margin-bottom: 20px; }
-        .search-container input { padding-left: 40px; border: 2px solid #e2e8f0; }
-        .search-icon { position: absolute; left: 15px; top: 12px; color: #a0aec0; }
-        .toggle-btn { background: #4a5568; margin-bottom: 20px; width: auto; padding: 8px 16px; }
-    </style>
+    <link rel="stylesheet" href="${pageContext.request.contextPath}/css/teacher_dashboard.css">
 </head>
 <body>
 
 <div class="sidebar">
     <h2>VCES Admin</h2>
-    <p style="color: #a0aec0;">Teacher: <strong>${sessionScope.user.username}</strong></p>
-    <hr style="border: 0.1px solid #4a5568; margin: 20px 0;">
+    <p style="color: #a0aec0; margin-bottom: 20px;">Teacher: <strong>${sessionScope.user.username}</strong></p>
+    
     <nav>
-        <div onclick="showTab('overview', this)" class="sidebar-link active">🏠 Dashboard Overview</div>
-        <div onclick="showTab('attendance', this)" class="sidebar-link">📝 Mark Attendance</div>
-        <div onclick="showTab('marketplace', this)" class="sidebar-link">🏪 Marketplace Manager</div>
+        <button onclick="showTab('overview', this)" class="sidebar-link active">🏠 Dashboard Overview</button>
+        <button onclick="showTab('attendance', this)" class="sidebar-link">📝 Mark Attendance</button>
+        <button onclick="showTab('marketplace', this)" class="sidebar-link">🏪 Marketplace Manager</button>
+        
         <a href="manageStudents" class="sidebar-link">👥 Student Registry</a>
         <a href="studentTransactions" class="sidebar-link">💰 Financial Ledger</a>
-        <hr style="border: 0.1px solid #4a5568; margin: 20px 0;">
-        <a href="login.jsp" style="color: #fc8181;" class="sidebar-link">🚪 Logout</a>
+        
+        <a href="login.jsp" class="sidebar-link logout">🚪 Logout</a>
     </nav>
 </div>
 
@@ -56,7 +33,7 @@
         </div>
         <div class="card">
             <h3>Quick Summary</h3>
-            <p>You have <strong>${marketplaceOrders.size()}</strong> pending purchase requests.</p>
+            <p>You have <strong>${marketplaceOrders != null ? marketplaceOrders.size() : 0}</strong> pending purchase requests.</p>
         </div>
     </div>
 
@@ -80,7 +57,7 @@
     <div id="marketplace" class="tab-panel">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
             <h1>Marketplace Manager</h1>
-            <button class="btn-submit toggle-btn" id="teacherAuditBtn" onclick="toggleTeacherAudit()">📜 View Transaction History</button>
+            <button class="toggle-btn" id="teacherAuditBtn" onclick="toggleTeacherAudit()">📜 View Transaction History</button>
         </div>
         
         <div id="teacherMarketManagement">
@@ -158,49 +135,6 @@
     </div>
 </div>
 
-<script>
-    function showTab(tabId, element) {
-        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-        document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
-        document.getElementById(tabId).classList.add('active');
-        element.classList.add('active');
-    }
-
-    function toggleTeacherAudit() {
-        const mgmt = document.getElementById('teacherMarketManagement');
-        const audit = document.getElementById('teacherMarketAudit');
-        const btn = document.getElementById('teacherAuditBtn');
-        if (mgmt.style.display === "none") {
-            mgmt.style.display = "block"; audit.style.display = "none";
-            btn.innerText = "📜 View Transaction History";
-        } else {
-            mgmt.style.display = "none"; audit.style.display = "block";
-            btn.innerText = "🏪 Back to Management";
-        }
-    }
-
-    function toggleChecks(source) {
-        document.getElementsByName('selectedOrders').forEach(c => c.checked = source.checked);
-    }
-
-    function filterAuditTable() {
-        let filter = document.getElementById("auditSearchInput").value.toLowerCase();
-        let rows = document.getElementsByClassName("audit-row");
-        for (let row of rows) {
-            let student = row.querySelector(".search-student").textContent.toLowerCase();
-            let item = row.querySelector(".search-item").textContent.toLowerCase();
-            row.style.display = (student.includes(filter) || item.includes(filter)) ? "" : "none";
-        }
-    }
-
-    window.onload = function() {
-        if (new URLSearchParams(window.location.search).has('success')) {
-            alert("Action Processed Successfully!");
-            const url = new URL(window.location);
-            url.searchParams.delete('success');
-            window.history.pushState({}, '', url);
-        }
-    };
-</script>
+<script src="${pageContext.request.contextPath}/js/teacher_dashboard.js"></script>
 </body>
 </html>

@@ -4,31 +4,21 @@
 <html>
 <head>
     <title>Registry Management - VCES</title>
-    <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #f8f9fa; margin: 0; padding: 20px; display: flex; }
-        .sidebar { width: 240px; background: #2d3436; color: white; height: 100vh; padding: 25px; position: fixed; left: 0; top: 0; }
-        .main-content { margin-left: 270px; width: 100%; max-width: 1200px; }
-        .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 25px; }
-        .nav-tabs { display: flex; gap: 5px; margin-bottom: 20px; border-bottom: 2px solid #dee2e6; }
-        .tab-btn { padding: 12px 30px; border: none; background: none; cursor: pointer; font-weight: 600; color: #636e72; border-bottom: 3px solid transparent; }
-        .tab-btn.active { color: #0984e3; border-bottom-color: #0984e3; }
-        .hidden { display: none; }
-        textarea, select, .search-bar { width: 100%; padding: 12px; border: 1px solid #dfe6e9; border-radius: 8px; box-sizing: border-box; }
-        .btn { padding: 12px 24px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; color: white; width: 100%; margin-top: 10px; }
-        .btn-primary { background: #0984e3; } .btn-danger { background: #d63031; } .btn-warning { background: #6c5ce7; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #f1f2f6; }
-        .checkbox-cell { width: 30px; text-align: center; }
-        .scroll-area { max-height: 250px; overflow-y: auto; border: 1px solid #dfe6e9; padding: 10px; border-radius: 8px; margin-top: 10px; }
-    </style>
+    <link rel="stylesheet" href="${pageContext.request.contextPath}/css/teacher_dashboard.css">
 </head>
 <body>
 
 <div class="sidebar">
-    <h3>VCES Admin</h3>
-    <hr style="border: 0.5px solid #636e72;">
-    <a href="teacherDashboard" style="color: #dfe6e9; text-decoration: none; display: block; margin: 20px 0;">Dashboard</a>
-    <a href="login.jsp" style="color: #ff7675; text-decoration: none;">Logout</a>
+    <h2>VCES Admin</h2>
+    <p style="color: #a0aec0; margin-bottom: 20px;">Teacher: <strong>${sessionScope.user.username}</strong></p>
+    <nav>
+        <a href="teacherDashboard" class="sidebar-link">🏠 Dashboard Overview</a>
+        <a href="markAttendance" class="sidebar-link">📝 Mark Attendance</a>
+        <a href="teacherDashboard?tab=marketplace" class="sidebar-link">🏪 Marketplace Manager</a>
+        <a href="manageStudents" class="sidebar-link active">👥 Student Registry</a>
+        <a href="studentTransactions" class="sidebar-link">💰 Financial Ledger</a>
+        <a href="login.jsp" class="sidebar-link logout">🚪 Logout</a>
+    </nav>
 </div>
 
 <div class="main-content">
@@ -130,7 +120,9 @@
     </div>
 </div>
 
+<script src="${pageContext.request.contextPath}/js/teacher_dashboard.js"></script>
 <script>
+// Keep page-specific behavior (tabs, filters)
 function switchTab(mode) {
     document.getElementById('sectionAdd').classList.toggle('hidden', mode !== 'add');
     document.getElementById('sectionRemove').classList.toggle('hidden', mode !== 'remove');
@@ -139,11 +131,11 @@ function switchTab(mode) {
 
 function filterEnrollList() {
     const q = document.getElementById('enrollSearch').value.toLowerCase();
-    document.querySelectorAll('.enroll-item').forEach(item => item.style.display = item.innerText.toLowerCase().includes(q) ? "block" : "none");
+    document.querySelectorAll('.enroll-item').forEach(item => item.style.display = item.innerText.toLowerCase().includes(q) ? 'block' : 'none');
 }
 function toggleEnrollAll(master) {
     document.querySelectorAll('#enrollListBody input[name="studentIds"]').forEach(cb => {
-        if(cb.closest('.enroll-item').style.display !== "none") cb.checked = master.checked;
+        if (cb.closest('.enroll-item').style.display !== 'none') cb.checked = master.checked;
     });
 }
 
@@ -154,31 +146,31 @@ function applyRegistryFilter() {
     document.getElementById('regMaster').checked = false;
 
     rows.forEach(row => {
-        const matchesClass = (classId === "all" || row.getAttribute('data-enrollments').split(',').includes(classId));
+        const matchesClass = classId === 'all' || row.getAttribute('data-enrollments').split(',').includes(classId);
         const matchesSearch = row.innerText.toLowerCase().includes(search);
-        row.style.display = (matchesClass && matchesSearch) ? "" : "none";
+        row.style.display = matchesClass && matchesSearch ? '' : 'none';
     });
 
     const btn = document.getElementById('batchBtn');
     const act = document.getElementById('currentAction');
-    if (classId === "all") {
-        btn.innerText = "Terminate Selected"; btn.className = "btn btn-danger"; act.value = "terminate";
+    if (classId === 'all') {
+        btn.innerText = 'Terminate Selected'; btn.className = 'btn btn-danger'; act.value = 'terminate';
     } else {
-        btn.innerText = "Unenroll from Class"; btn.className = "btn btn-warning"; act.value = "unenroll";
+        btn.innerText = 'Unenroll from Class'; btn.className = 'btn btn-warning'; act.value = 'unenroll';
         document.getElementById('targetClassId').value = classId;
     }
 }
 function toggleRegistryAll(master) {
     document.querySelectorAll('#registryBody input[name="studentIds"]').forEach(cb => {
-        if(cb.closest('tr').style.display !== "none") cb.checked = master.checked;
+        if (cb.closest('tr').style.display !== 'none') cb.checked = master.checked;
     });
 }
 
 function executeRegistryAction() {
     const form = document.getElementById('registryForm');
     const checked = form.querySelectorAll('input[name="studentIds"]:checked').length;
-    if (checked === 0) { alert("Please select records."); return; }
-    if (confirm("Execute selected operation for " + checked + " records?")) form.submit();
+    if (checked === 0) { alert('Please select records.'); return; }
+    if (confirm('Execute selected operation for ' + checked + ' records?')) form.submit();
 }
 </script>
 </body>
