@@ -11,12 +11,20 @@ import models.User;
 
 @WebServlet("/studentDashboard")
 public class StudentDashboardServlet extends HttpServlet {
+    private static final long serialVersionUID = 1L;
+
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         HttpSession session = request.getSession();
         User student = (User) session.getAttribute("user");
-        if (student == null) { response.sendRedirect("login.html"); return; }
+        
+        // Basic Authentication Check
+        if (student == null) { 
+            response.sendRedirect("login.jsp"); 
+            return; 
+        }
 
         try (Connection conn = DBConnection.getConnection()) {
+            
             // 1. Fetch Balance & Roll No
             String sqlB = "SELECT w.balance, u.roll_no FROM wallets w JOIN users u ON w.student_id = u.user_id WHERE u.user_id = ?";
             try (PreparedStatement pstB = conn.prepareStatement(sqlB)) {
@@ -32,7 +40,8 @@ public class StudentDashboardServlet extends HttpServlet {
             List<Map<String, Object>> walletHistory = new ArrayList<>();
             String sqlH = "SELECT * FROM transactions WHERE sender_id = ? OR receiver_id = ? ORDER BY created_at DESC LIMIT 20";
             try (PreparedStatement pstH = conn.prepareStatement(sqlH)) {
-                pstH.setInt(1, student.getId()); pstH.setInt(2, student.getId());
+                pstH.setInt(1, student.getId()); 
+                pstH.setInt(2, student.getId());
                 ResultSet rsH = pstH.executeQuery();
                 while(rsH.next()){
                     Map<String, Object> m = new HashMap<>();
@@ -45,7 +54,7 @@ public class StudentDashboardServlet extends HttpServlet {
             }
             request.setAttribute("history", walletHistory);
 
-            // 3. Fetch Pending Payment Requests (UPI Style incoming requests)
+            // 3. Fetch Pending Payment Requests (Incoming requests)
             List<Map<String, Object>> reqs = new ArrayList<>();
             String sqlQ = "SELECT r.request_id, r.amount, r.note, u.username FROM payment_requests r " +
                           "JOIN users u ON r.sender_id = u.user_id " +
@@ -82,7 +91,7 @@ public class StudentDashboardServlet extends HttpServlet {
             }
             request.setAttribute("availableItems", shopItems);
 
-            // 5. Fetch Student's Order History (Audit Logs for the Shop Panel)
+            // 5. Fetch Student's Order History (Audit Logs)
             List<Map<String, Object>> myOrders = new ArrayList<>();
             String sqlO = "SELECT item_name, price, status, purchased_at FROM marketplace_orders WHERE student_id = ? ORDER BY purchased_at DESC";
             try (PreparedStatement pstO = conn.prepareStatement(sqlO)) {
@@ -99,10 +108,15 @@ public class StudentDashboardServlet extends HttpServlet {
             }
             request.setAttribute("myOrders", myOrders);
 
+            // Forward to the JSP page
             request.getRequestDispatcher("student_dashboard.jsp").forward(request, response);
-        } catch (Exception e) { 
+
+        } catch (SQLException e) { 
             e.printStackTrace(); 
-            response.sendError(500, "Critical Error Loading Student Dashboard: " + e.getMessage()); 
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Database Error: " + e.getMessage()); 
+        } catch (Exception e) {
+            e.printStackTrace();
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "System Error: " + e.getMessage());
         }
     }
 }
