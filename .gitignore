@@ -1,1 +1,8 @@
 src/utils/db.properties
+
+# Ignore all compiled classes
+*.class
+webapp/WEB-INF/classes/
+
+# Ignore Tomcat temporary files
+webapp/META-INF/context.xml
