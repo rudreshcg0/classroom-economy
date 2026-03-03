@@ -1,18 +1,28 @@
+# --- Sensitive Local Data ---
+# Never push your local DB credentials to Git
 src/utils/db.properties
+classroom-economy-security-updates/src/utils/db.properties
 
-# Ignore all compiled classes
+# --- Build Artifacts (Maven) ---
+# Railway will create these itself during deployment
+target/
+*.war
+*.jar
+
+# --- Java Compiled Files ---
+# Never push compiled code; Railway builds from source
 *.class
 webapp/WEB-INF/classes/
+classroom-economy-security-updates/webapp/WEB-INF/classes/
 
-# Ignore Tomcat temporary files
-webapp/META-INF/context.xml
-# Ignore compiled classes and binaries
-target/
-*.class
-
-# Ignore local database properties
-src/utils/db.properties
-
-# Ignore OS metadata
+# --- IDE & System Metadata ---
+.settings/
+.project
+.classpath
 .DS_Store
 Thumbs.db
+.idea/
+*.iml
+
+# --- Temporary/Local Config ---
+webapp/META-INF/context.xml
