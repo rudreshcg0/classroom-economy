@@ -331,3 +331,80 @@ function initStudentGridKeyboardNav() {
         }
     });
 }
+
+/* * FINANCE & LIMIT SYSTEM LOGIC
+ * Add these to your teacher_dashboard.js
+ */
+
+// Handle cleaning URL parameters and showing specialized alerts
+const originalCleanUrl = cleanUrl;
+cleanUrl = function(params) {
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    if (urlParams.has('success')) {
+        const val = urlParams.get('success');
+        if (val === 'request_sent') {
+            alert('✅ Extension request sent successfully! Please wait for Admin approval.');
+        }
+    }
+    
+    if (urlParams.has('error')) {
+        const err = urlParams.get('error');
+        if (err === 'limit_exceeded') {
+            alert('⚠️ Transaction Failed: You have reached your daily reward limit. Please request an extension.');
+        }
+    }
+
+    // Call the original cleanUrl logic provided in your base code
+    originalCleanUrl(params);
+};
+
+// Close modals when clicking the 'Done' or 'Close' buttons
+function closeExtensionModal() {
+    document.getElementById('extensionModal').style.display = 'none';
+}
+
+/**
+ * Re-initializing the reward grid logic to ensure it 
+ * references the correct container in the updated JSP
+ */
+function openRewardGrid(type) {
+    const selected = document.querySelectorAll('.student-reward-card input:checked');
+    if (selected.length === 0) {
+        alert("Please select at least one student!");
+        return;
+    }
+
+    const modal = document.getElementById('rewardGridModal');
+    const container = document.getElementById('rewardGridContainer'); // Updated ID match
+    const title = document.getElementById('gridModalTitle'); // Updated ID match
+
+    title.textContent = type === 'award' ? 'Select Reward Block' : 'Select Deduction Block';
+    container.innerHTML = '<div style="grid-column: span 3; text-align:center;">Loading rewards...</div>';
+
+    fetch(`rewardAction?action=getTeacherRewards&type=${type}`)
+        .then(response => response.json())
+        .then(data => {
+            container.innerHTML = ''; 
+            if (data.rewards && data.rewards.length > 0) {
+                data.rewards.forEach(rt => {
+                    const block = document.createElement('div');
+                    block.className = 'card reward-block';
+                    block.style.textAlign = 'center';
+                    block.style.cursor = 'pointer';
+                    block.onclick = () => submitReward(rt.id);
+                    block.innerHTML = `
+                        <div style="font-size: 32px; margin-bottom:10px;">${rt.icon}</div>
+                        <div style="font-weight: bold; font-size:14px;">${rt.name}</div>
+                        <div style="color: ${type === 'award' ? '#10b981' : '#ef4444'}; font-weight:bold;">
+                            ${type === 'award' ? '+' : '-'}₹${Math.abs(rt.amount)}
+                        </div>
+                    `;
+                    container.appendChild(block);
+                });
+            } else {
+                container.innerHTML = `<p style="grid-column: span 3; color: #64748b; text-align:center;">No ${type} blocks found.</p>`;
+            }
+            modal.style.display = 'flex';
+        });
+}

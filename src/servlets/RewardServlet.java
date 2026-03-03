@@ -12,7 +12,6 @@ import java.util.*;
 @WebServlet("/rewardAction")
 public class RewardServlet extends HttpServlet {
 
-    // Helper to load standard dashboard data to prevent JSP errors on reload
     private void loadDashboardData(HttpServletRequest request, User teacher, Connection conn) throws SQLException {
         List<Map<String, Object>> classes = new ArrayList<>();
         PreparedStatement ps = conn.prepareStatement("SELECT class_id, class_name FROM classes WHERE teacher_id = ?");
@@ -42,7 +41,6 @@ public class RewardServlet extends HttpServlet {
 
             loadDashboardData(request, teacher, conn);
             
-            // Load Teacher's custom blocks for the Management Modal
             List<Map<String, Object>> teacherRewards = new ArrayList<>();
             PreparedStatement psT = conn.prepareStatement("SELECT * FROM reward_types WHERE teacher_id = ? ORDER BY name ASC");
             psT.setInt(1, teacher.getId());
@@ -112,6 +110,8 @@ public class RewardServlet extends HttpServlet {
                 handleAddReward(request, response, conn, teacher);
             } else if ("deleteRewardType".equals(action)) {
                 handleDeleteReward(request, response, conn, teacher);
+            } else if ("requestLimitIncrease".equals(action)) {
+                handleLimitRequest(request, response, conn, teacher);
             }
         } catch (Exception e) { e.printStackTrace(); }
     }
@@ -119,55 +119,87 @@ public class RewardServlet extends HttpServlet {
     private void processBulkReward(HttpServletRequest request, HttpServletResponse response, Connection conn, User teacher) throws Exception {
         String[] studentIds = request.getParameterValues("selectedStudents");
         int rewardId = Integer.parseInt(request.getParameter("rewardId"));
+        
         PreparedStatement psR = conn.prepareStatement("SELECT * FROM reward_types WHERE id = ?");
         psR.setInt(1, rewardId);
         ResultSet rsR = psR.executeQuery();
 
         if (rsR.next() && studentIds != null) {
-            double amount = rsR.getDouble("amount");
+            double amountPerStudent = rsR.getDouble("amount");
             String rewardName = rsR.getString("name");
-            conn.setAutoCommit(false);
-            
-            for (String sId : studentIds) {
-                int studentId = Integer.parseInt(sId);
+            double totalRewardCost = (amountPerStudent > 0) ? (amountPerStudent * studentIds.length) : 0;
+
+            // 1. Check Daily Velocity Limit
+            if (amountPerStudent > 0) {
+                double dailyLimit = 0, tempExtension = 0, spentToday = 0;
                 
-                // Update Student Wallet
-                PreparedStatement upW = conn.prepareStatement("UPDATE wallets SET balance = balance + ? WHERE student_id = ?");
-                upW.setDouble(1, amount);
-                upW.setInt(2, studentId);
-                upW.executeUpdate();
-                
-                // PROFESSIONAL LEDGER LOGIC:
-                // If amount is positive (Award): Sender = Teacher, Receiver = Student (Type: REWARD_AWARD)
-                // If amount is negative (Deduct): Sender = Student, Receiver = Teacher (Type: REWARD_DEDUCT)
-                int finalSender, finalReceiver;
-                String finalType;
-                
-                if (amount >= 0) {
-                    finalSender = teacher.getId();
-                    finalReceiver = studentId;
-                    finalType = "REWARD_AWARD";
-                } else {
-                    finalSender = studentId;
-                    finalReceiver = teacher.getId();
-                    finalType = "REWARD_DEDUCT";
+                PreparedStatement psL = conn.prepareStatement("SELECT daily_limit, temp_extension FROM teacher_allowance WHERE teacher_id = ?");
+                psL.setInt(1, teacher.getId());
+                ResultSet rsL = psL.executeQuery();
+                if (rsL.next()) {
+                    dailyLimit = rsL.getDouble("daily_limit");
+                    tempExtension = rsL.getDouble("temp_extension");
                 }
 
-                PreparedStatement log = conn.prepareStatement(
-                    "INSERT INTO transactions (sender_id, receiver_id, amount, type, description, school_id) " +
-                    "VALUES (?, ?, ?, ?, ?, ?)"
-                );
-                log.setInt(1, finalSender);
-                log.setInt(2, finalReceiver);
-                log.setDouble(3, Math.abs(amount));
-                log.setString(4, finalType);
-                log.setString(5, (amount >= 0 ? "Award: " : "Deduct: ") + rewardName);
-                log.setInt(6, teacher.getSchoolId());
-                log.executeUpdate();
+                PreparedStatement psS = conn.prepareStatement("SELECT SUM(amount) FROM transactions WHERE sender_id = ? AND type = 'REWARD_AWARD' AND created_at >= CURRENT_DATE");
+                psS.setInt(1, teacher.getId());
+                ResultSet rsS = psS.executeQuery();
+                if (rsS.next()) spentToday = rsS.getDouble(1);
+
+                if (spentToday + totalRewardCost > (dailyLimit + tempExtension)) {
+                    response.sendRedirect("teacherDashboard?tab=overview&error=limit_exceeded");
+                    return;
+                }
             }
-            conn.commit();
+
+            // 2. Process Transactions
+            conn.setAutoCommit(false);
+            try {
+                for (String sId : studentIds) {
+                    int studentId = Integer.parseInt(sId);
+                    
+                    PreparedStatement upW = conn.prepareStatement("UPDATE wallets SET balance = balance + ? WHERE student_id = ?");
+                    upW.setDouble(1, amountPerStudent);
+                    upW.setInt(2, studentId);
+                    upW.executeUpdate();
+                    
+                    int finalSender = (amountPerStudent >= 0) ? teacher.getId() : studentId;
+                    int finalReceiver = (amountPerStudent >= 0) ? studentId : teacher.getId();
+                    String finalType = (amountPerStudent >= 0) ? "REWARD_AWARD" : "REWARD_DEDUCT";
+
+                    PreparedStatement log = conn.prepareStatement(
+                        "INSERT INTO transactions (sender_id, receiver_id, amount, type, description, school_id) VALUES (?, ?, ?, ?, ?, ?)"
+                    );
+                    log.setInt(1, finalSender);
+                    log.setInt(2, finalReceiver);
+                    log.setDouble(3, Math.abs(amountPerStudent));
+                    log.setString(4, finalType);
+                    log.setString(5, (amountPerStudent >= 0 ? "Award: " : "Deduct: ") + rewardName);
+                    log.setInt(6, teacher.getSchoolId());
+                    log.executeUpdate();
+                }
+                conn.commit();
+                response.sendRedirect("teacherDashboard?tab=overview&success=1");
+            } catch (Exception e) {
+                conn.rollback();
+                throw e;
+            }
         }
-        response.sendRedirect("teacherDashboard?tab=overview&success=1");
+    }
+
+    private void handleLimitRequest(HttpServletRequest request, HttpServletResponse response, Connection conn, User teacher) throws Exception {
+        double amount = Double.parseDouble(request.getParameter("amount"));
+        String reason = request.getParameter("reason");
+
+        String sql = "INSERT INTO limit_requests (teacher_id, school_id, requested_amount, reason) VALUES (?, ?, ?, ?)";
+        try (PreparedStatement pst = conn.prepareStatement(sql)) {
+            pst.setInt(1, teacher.getId());
+            pst.setInt(2, teacher.getSchoolId());
+            pst.setDouble(3, amount);
+            pst.setString(4, reason);
+            pst.executeUpdate();
+        }
+        response.sendRedirect("teacherDashboard?tab=overview&success=request_sent");
     }
 
     private void handleAddReward(HttpServletRequest request, HttpServletResponse response, Connection conn, User teacher) throws Exception {
