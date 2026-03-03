@@ -28,14 +28,14 @@
     </div>
 
     <div id="sectionAdd">
-        <div style="display:grid; grid-template-columns: 1fr 1.5fr; gap: 20px;">
+        <div style="display:grid; grid-template-columns: 1fr 1.5fr; gap: 25px;">
             <div class="card">
                 <h3>New Registration</h3>
                 <form action="manageStudents" method="POST">
                     <input type="hidden" name="action" value="register">
-                    <p style="font-size: 0.85rem; color: #636e72; margin-bottom: 5px;">Format: <strong>Name, Roll No, Personal Email</strong></p>
-                    <textarea name="studentData" placeholder="Rudresh, 101, rudresh@example.com" required style="height: 200px;"></textarea>
-                    <button type="submit" class="btn btn-primary">Process Registration</button>
+                    <p style="font-size: 12px; color: #64748b; margin-bottom: 10px;">Format: <strong>Name, Roll No, Email</strong></p>
+                    <textarea name="studentData" placeholder="Example: Rudresh, 101, rudresh@example.com" required style="height: 200px;"></textarea>
+                    <button type="submit" class="btn btn-primary" style="margin-top:15px;">Process Registration</button>
                 </form>
             </div>
 
@@ -51,22 +51,25 @@
                         <% } %>
                     </select>
                     
-                    <input type="text" id="enrollSearch" onkeyup="filterEnrollList()" placeholder="Search students..." class="search-bar" style="margin-top:10px;">
+                    <div class="search-container" style="margin-top:10px;">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" id="enrollSearch" onkeyup="filterEnrollList()" placeholder="Search students...">
+                    </div>
                     
-                    <div class="scroll-area">
-                        <label style="display:block; padding-bottom: 10px; border-bottom: 1px solid #eee; margin-bottom: 10px; font-weight: bold;">
-                            <input type="checkbox" id="enrollMaster" onclick="toggleEnrollAll(this)"> Select All Visible
+                    <div class="scroll-area" style="border: 1px solid #f1f5f9; padding:10px; border-radius:10px;">
+                        <label style="display:block; padding-bottom: 10px; border-bottom: 1px solid #f1f5f9; margin-bottom: 10px; font-weight: bold;">
+                            <input type="checkbox" onclick="toggleEnrollAll(this)"> Select Visible
                         </label>
                         <div id="enrollListBody">
                             <% List<User> studentList = (List<User>)request.getAttribute("students");
                                if(studentList != null) for(User s : studentList) { %>
-                                <label class="enroll-item" style="display:block; padding: 5px 0;">
+                                <label class="enroll-item" style="display:block; padding: 8px 12px; border: 1px solid #f1f5f9; border-radius:8px; margin-bottom:5px; cursor: pointer;">
                                     <input type="checkbox" name="studentIds" value="<%= s.getId() %>"> <%= s.getUsername() %> [Roll: <%= s.getRollNo() %>]
                                 </label>
                             <% } %>
                         </div>
                     </div>
-                    <button type="submit" class="btn btn-warning">Confirm Enrollment</button>
+                    <button type="submit" class="btn btn-warning" style="margin-top:15px;">Confirm Enrollment</button>
                 </form>
             </div>
         </div>
@@ -76,14 +79,14 @@
         <div class="card">
             <h3>Registry Management</h3>
             <div style="display:flex; gap: 15px; margin-bottom: 20px;">
-                <select id="classFilter" onchange="applyRegistryFilter()" style="flex:1">
+                <select id="classFilter" onchange="applyRegistryFilter()" style="flex:1; margin-bottom:0;">
                     <option value="all">Full Registry (System Termination)</option>
                     <% if(classes != null) for(Map<String, Object> c : classes) { %>
                         <option value="<%= c.get("id") %>"><%= c.get("name") %> (Class Unenrollment)</option>
                     <% } %>
                 </select>
-                <input type="text" id="registrySearch" onkeyup="applyRegistryFilter()" placeholder="Search registry..." class="search-bar" style="flex:1; margin-bottom:0;">
-                <button type="button" class="btn btn-danger" onclick="executeRegistryAction()" id="batchBtn" style="flex:0.5; margin-top:0;">Terminate Selected</button>
+                <input type="text" id="registrySearch" onkeyup="applyRegistryFilter()" placeholder="Search registry..." style="flex:1; margin-bottom:0;">
+                <button type="button" class="btn btn-danger" onclick="executeRegistryAction()" id="batchBtn" style="padding: 0 25px;">Terminate Selected</button>
             </div>
 
             <form id="registryForm" action="manageStudents" method="POST">
@@ -92,9 +95,9 @@
                 <table>
                     <thead>
                         <tr>
-                            <th class="checkbox-cell"><input type="checkbox" id="regMaster" onclick="toggleRegistryAll(this)"></th>
+                            <th style="width:40px;"><input type="checkbox" id="regMaster" onclick="toggleRegistryAll(this)"></th>
                             <th>ID / Roll No</th>
-                            <th>Credential / Username</th>
+                            <th>Username</th>
                             <th>Active Enrollments</th>
                         </tr>
                     </thead>
@@ -107,7 +110,7 @@
                                }
                         %>
                         <tr class="registry-row" data-enrollments="<%= cIds %>">
-                            <td class="checkbox-cell"><input type="checkbox" name="studentIds" value="<%= s.getId() %>"></td>
+                            <td><input type="checkbox" name="studentIds" value="<%= s.getId() %>"></td>
                             <td><%= s.getRollNo() %></td>
                             <td><strong><%= s.getUsername() %></strong></td>
                             <td><small><%= cNames %></small></td>
@@ -120,57 +123,40 @@
     </div>
 </div>
 
-<script src="${pageContext.request.contextPath}/js/teacher_dashboard.js"></script>
 <script>
-// Keep page-specific behavior (tabs, filters)
 function switchTab(mode) {
     document.getElementById('sectionAdd').classList.toggle('hidden', mode !== 'add');
     document.getElementById('sectionRemove').classList.toggle('hidden', mode !== 'remove');
     document.querySelectorAll('.tab-btn').forEach((b, i) => b.classList.toggle('active', (i === 0 && mode === 'add') || (i === 1 && mode === 'remove')));
 }
-
 function filterEnrollList() {
     const q = document.getElementById('enrollSearch').value.toLowerCase();
     document.querySelectorAll('.enroll-item').forEach(item => item.style.display = item.innerText.toLowerCase().includes(q) ? 'block' : 'none');
 }
-function toggleEnrollAll(master) {
-    document.querySelectorAll('#enrollListBody input[name="studentIds"]').forEach(cb => {
-        if (cb.closest('.enroll-item').style.display !== 'none') cb.checked = master.checked;
-    });
+function toggleEnrollAll(m) {
+    document.querySelectorAll('#enrollListBody input').forEach(cb => { if(cb.closest('.enroll-item').style.display !== 'none') cb.checked = m.checked; });
 }
-
 function applyRegistryFilter() {
-    const classId = document.getElementById('classFilter').value;
-    const search = document.getElementById('registrySearch').value.toLowerCase();
-    const rows = document.querySelectorAll('.registry-row');
-    document.getElementById('regMaster').checked = false;
-
-    rows.forEach(row => {
-        const matchesClass = classId === 'all' || row.getAttribute('data-enrollments').split(',').includes(classId);
-        const matchesSearch = row.innerText.toLowerCase().includes(search);
+    const cId = document.getElementById('classFilter').value;
+    const q = document.getElementById('registrySearch').value.toLowerCase();
+    document.querySelectorAll('.registry-row').forEach(row => {
+        const matchesClass = cId === 'all' || row.getAttribute('data-enrollments').split(',').includes(cId);
+        const matchesSearch = row.innerText.toLowerCase().includes(q);
         row.style.display = matchesClass && matchesSearch ? '' : 'none';
     });
-
     const btn = document.getElementById('batchBtn');
     const act = document.getElementById('currentAction');
-    if (classId === 'all') {
-        btn.innerText = 'Terminate Selected'; btn.className = 'btn btn-danger'; act.value = 'terminate';
-    } else {
-        btn.innerText = 'Unenroll from Class'; btn.className = 'btn btn-warning'; act.value = 'unenroll';
-        document.getElementById('targetClassId').value = classId;
-    }
+    if (cId === 'all') { btn.innerText = 'Terminate Selected'; btn.className = 'btn btn-danger'; act.value = 'terminate'; }
+    else { btn.innerText = 'Unenroll from Class'; btn.className = 'btn btn-warning'; act.value = 'unenroll'; document.getElementById('targetClassId').value = cId; }
 }
-function toggleRegistryAll(master) {
-    document.querySelectorAll('#registryBody input[name="studentIds"]').forEach(cb => {
-        if (cb.closest('tr').style.display !== 'none') cb.checked = master.checked;
-    });
+function toggleRegistryAll(m) {
+    document.querySelectorAll('#registryBody input').forEach(cb => { if(cb.closest('tr').style.display !== 'none') cb.checked = m.checked; });
 }
-
 function executeRegistryAction() {
-    const form = document.getElementById('registryForm');
-    const checked = form.querySelectorAll('input[name="studentIds"]:checked').length;
-    if (checked === 0) { alert('Please select records.'); return; }
-    if (confirm('Execute selected operation for ' + checked + ' records?')) form.submit();
+    const f = document.getElementById('registryForm');
+    const n = f.querySelectorAll('input[name="studentIds"]:checked').length;
+    if (n === 0) { alert('Please select records.'); return; }
+    if (confirm('Execute for ' + n + ' students?')) f.submit();
 }
 </script>
 </body>

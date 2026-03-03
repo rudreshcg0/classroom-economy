@@ -164,3 +164,9 @@ ALTER TABLE users ADD COLUMN birthdate DATE;
 
 ALTER TABLE users ADD COLUMN otp_code VARCHAR(6);
 ALTER TABLE users ADD COLUMN otp_expiry TIMESTAMP;
+
+INSERT INTO reward_types (name, amount, icon, is_positive) VALUES 
+('Helping Others', 5.00, '🤝', TRUE),
+('On Task', 2.00, '🎯', TRUE),
+('Participating', 3.00, '✋', TRUE),
+('Disrupting', -5.00, '🤫', FALSE);

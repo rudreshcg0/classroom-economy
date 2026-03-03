@@ -101,12 +101,29 @@ public class TeacherDashboardServlet extends HttpServlet {
                 }
             }
 
+            // 6. Fetch Teacher-specific Reward Blocks for the management modal
+            List<Map<String, Object>> teacherRewards = new ArrayList<>();
+            String sqlRewards = "SELECT * FROM reward_types WHERE teacher_id = ? OR teacher_id IS NULL ORDER BY name ASC";
+            try (PreparedStatement pstRewards = conn.prepareStatement(sqlRewards)) {
+                pstRewards.setInt(1, teacher.getId());
+                ResultSet rsRewards = pstRewards.executeQuery();
+                while (rsRewards.next()) {
+                    Map<String, Object> r = new HashMap<>();
+                    r.put("id", rsRewards.getInt("id"));
+                    r.put("name", rsRewards.getString("name"));
+                    r.put("amount", rsRewards.getDouble("amount"));
+                    r.put("icon", rsRewards.getString("icon"));
+                    teacherRewards.add(r);
+                }
+            }
+
             // Set all data for JSP handling
             request.setAttribute("allowance", currentAllowance);
             request.setAttribute("classes", classesList);
             request.setAttribute("myItems", myItems);
             request.setAttribute("marketplaceOrders", pendingOrders);
             request.setAttribute("fullAudit", fullAudit);
+            request.setAttribute("teacherRewardTypes", teacherRewards);
             
             request.getRequestDispatcher("teacher_dashboard.jsp").forward(request, response);
 

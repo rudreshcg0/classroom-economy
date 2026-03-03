@@ -112,3 +112,11 @@ CREATE TABLE marketplace_items (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE reward_types (
+    id SERIAL PRIMARY KEY,
+    teacher_id INT REFERENCES users(user_id) ON DELETE CASCADE,
+    name VARCHAR(50) NOT NULL,
+    amount DECIMAL(10, 2) NOT NULL,
+    icon VARCHAR(20) DEFAULT '⭐',
+    is_positive BOOLEAN DEFAULT TRUE
+);
