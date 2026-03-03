@@ -71,7 +71,8 @@
                             <%= s.getUsername() %>
                         </a>
                     </td>
-                    <td><strong style="color:#10b981;">$<%= String.format("%.22f", s.getBalance()) %></strong></td>
+                    <%-- FIXED LINE: Added formatting for 2 decimal places --%>
+                    <td><strong style="color:#10b981;">$<%= String.format("%.2f", s.getBalance()) %></strong></td>
                 </tr>
                 <% } %>
             </tbody>
@@ -105,7 +106,8 @@
                     <td><small style="color:#64748b;"><%= t.get("date") %></small></td>
                     <td><%= t.get("sender") %></td>
                     <td><%= t.get("receiver") %></td>
-                    <td><strong>$<%= t.get("amount") %></strong></td>
+                    <%-- FIXED LINE: Added formatting for 2 decimal places --%>
+                    <td><strong>$<%= String.format("%.2f", t.get("amount")) %></strong></td>
                     <td>
                         <span class="badge <%= t.get("type").toString().equalsIgnoreCase("REWARD") || t.get("type").toString().equalsIgnoreCase("Salary") ? "bg-salary" : "bg-transfer" %>">
                             <%= t.get("type") %>
@@ -120,7 +122,6 @@
 </div>
 
 <script>
-// Search Students in the list
 function filterStudents() {
     const q = document.getElementById('studentSearch').value.toLowerCase();
     document.querySelectorAll('.student-row').forEach(row => {
@@ -128,7 +129,6 @@ function filterStudents() {
     });
 }
 
-// Search Transactions in the history
 function filterTx() {
     const q = document.getElementById('txSearch').value.toLowerCase();
     document.querySelectorAll('.tx-row').forEach(row => {
@@ -136,9 +136,7 @@ function filterTx() {
     });
 }
 
-// Sidebar active state persistence check
 window.onload = function() {
-    // Ensuring the JS from dashboard doesn't conflict
     console.log("Financial Ledger Loaded");
 };
 </script>

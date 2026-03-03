@@ -202,14 +202,32 @@ function toggleChecks(source) {
 window.onload = function () {
     const urlParams = new URLSearchParams(window.location.search);
 
-    // Toast/Alert Logic
+    // Toast/Alert Logic (Enhanced for Attendance)
     if (urlParams.has('success')) {
-        alert('Action Processed Successfully!');
-        cleanUrl(['success', 'error']);
-    } else if (urlParams.has('error')) {
+        const count = urlParams.get('count');
+        
+        // If 'count' exists, it's an Attendance response
+        if (count !== null) {
+            const num = parseInt(count);
+            if (num === 0) {
+                alert('Attendance recorded, but no new payments were processed (students were already marked today).');
+            } else {
+                alert(`Successfully processed attendance and paid ${num} student(s)!`);
+            }
+        } else {
+            // Standard success message for Rewards, Marketplace, etc.
+            alert('Action Processed Successfully!');
+        }
+        
+        cleanUrl(['success', 'count', 'error']);
+    } 
+    else if (urlParams.has('error')) {
         const err = urlParams.get('error');
-        if(err === 'insufficient_budget') alert('Error: Insufficient Class Reward Budget!');
+        if (err === 'insufficient_budget') alert('Error: Insufficient Class Reward Budget!');
+        else if (err === 'already_paid_today') alert('Notice: Selected students have already been paid for today.');
+        else if (err === 'no_selection') alert('Please select at least one student.');
         else alert('An error occurred. Please try again.');
+        
         cleanUrl(['error']);
     }
 
@@ -229,12 +247,14 @@ window.onload = function () {
 
     // Click outside modal to close
     window.onclick = function(event) {
-        if (event.target.classList.contains('modal-overlay')) {
+        if (event.target && event.target.classList.contains('modal-overlay')) {
             event.target.style.display = 'none';
         }
     };
 
-    initStudentGridKeyboardNav();
+    if (typeof initStudentGridKeyboardNav === "function") {
+        initStudentGridKeyboardNav();
+    }
 };
 
 function cleanUrl(params) {

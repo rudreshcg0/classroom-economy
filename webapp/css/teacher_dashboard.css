@@ -277,3 +277,136 @@ th { background-color: #f8fafc; color: #64748b; font-size: 12px; text-transform:
 .scroll-area::-webkit-scrollbar { width: 6px; }
 .scroll-area::-webkit-scrollbar-track { background: #f1f5f9; }
 .scroll-area::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+/* ==========================================
+   REGISTRY PAGE COMPONENTS
+   ========================================== */
+
+/* Navigation Tabs */
+.nav-tabs { 
+    display: flex; 
+    gap: 10px; 
+    margin-bottom: 25px; 
+    border-bottom: 2px solid #f1f5f9; 
+}
+
+.tab-btn { 
+    padding: 12px 24px; 
+    border: none; 
+    background: none; 
+    cursor: pointer; 
+    font-weight: 600; 
+    color: #94a3b8; 
+    border-bottom: 3px solid transparent; 
+    transition: all 0.3s ease;
+}
+
+.tab-btn:hover { color: #3182ce; }
+
+.tab-btn.active { 
+    color: #3182ce; 
+    border-bottom-color: #3182ce; 
+}
+
+/* Registry Specific Buttons */
+.btn { 
+    padding: 12px 20px; 
+    border: none; 
+    border-radius: 10px; 
+    cursor: pointer; 
+    font-weight: 600; 
+    display: inline-block;
+    transition: all 0.2s ease;
+    text-align: center;
+    font-size: 14px;
+}
+
+.btn-primary { background: #3b82f6; color: white; width: auto;min-width: 160px; margin-top: 10px; white-space: nowrap; }
+.btn-warning { background: #f59e0b; color: white;  width: auto;min-width: 160px; margin-top: 10px; white-space: nowrap; }
+.btn-danger { background: #ef4444; color: white; }
+
+.btn:hover { transform: translateY(-1px); opacity: 0.9; }
+
+/* Form Elements */
+textarea {
+    width: 100%;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 15px;
+    font-family: inherit;
+    resize: vertical;
+    box-sizing: border-box;
+}
+
+.enroll-item {
+    display: block;
+    padding: 10px 15px;
+    border: 1px solid #f1f5f9;
+    border-radius: 10px;
+    margin-bottom: 8px;
+    transition: 0.2s;
+    cursor: pointer;
+}
+
+.enroll-item:hover { background-color: #f8fafc; border-color: #cbd5e1; }
+
+.hidden { display: none !important; }
+.checkbox-cell { width: 40px; text-align: center; }
+/* ==========================================
+   LEDGER PAGE COMPONENTS (Restored)
+   ========================================== */
+
+/* Breadcrumbs */
+.breadcrumb { 
+    margin-bottom: 20px; 
+    font-size: 14px; 
+    color: #636e72; 
+}
+
+.breadcrumb a { 
+    color: #3182ce; 
+    text-decoration: none; 
+    font-weight: 600;
+}
+
+.breadcrumb a:hover { 
+    text-decoration: underline; 
+}
+
+/* Student Links in Tables */
+.student-link { 
+    color: #3182ce; 
+    font-weight: bold; 
+    text-decoration: none; 
+    cursor: pointer; 
+}
+
+.student-link:hover { 
+    text-decoration: underline; 
+}
+
+/* Specific Search Input for Ledger */
+.search-input { 
+    width: 100%; 
+    padding: 12px; 
+    border: 1px solid #cbd5e0; 
+    border-radius: 8px; 
+    margin-top: 10px;
+    box-sizing: border-box;
+    font-size: 14px;
+    font-family: inherit;
+}
+
+.search-input:focus { 
+    outline: none; 
+    border-color: #3182ce; 
+    box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.1); 
+}
+
+/* Badge colors for ledger transactions */
+.bg-salary { background: #c6f6d5; color: #2f855a; }
+.bg-transfer { background: #bee3f8; color: #2b6cb0; }
+
+/* Table row specific styling */
+.student-row:hover, .tx-row:hover {
+    background-color: #f7fafc;
+}

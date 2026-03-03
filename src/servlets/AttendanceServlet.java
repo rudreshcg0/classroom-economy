@@ -79,33 +79,43 @@ public class AttendanceServlet extends HttpServlet {
 
         int classId = Integer.parseInt(classIdStr);
         int schoolId = Integer.parseInt(schoolIdStr);
+        int processedCount = 0;
 
         try (Connection conn = DBConnection.getConnection()) {
             conn.setAutoCommit(false);
 
-            // 1. Mints money into the student wallet
+            // SQL to check if student already marked today
+            String checkSql = "SELECT 1 FROM attendance WHERE student_id = ? AND class_id = ? AND attendance_date = CURRENT_DATE";
+            
             String updateWallet = "UPDATE wallets SET balance = balance + (SELECT pay_per_session FROM classes WHERE class_id = ?) WHERE student_id = ?";
-            
-            // 2. Marks attendance on the specific date
             String markAttend = "INSERT INTO attendance (student_id, class_id, is_present, processed_payment, attendance_date) VALUES (?, ?, TRUE, TRUE, CURRENT_DATE)";
-            
-            // 3. Logs the system transaction (sender_id is NULL or a specific System Account ID)
             String logTrans = "INSERT INTO transactions (sender_id, receiver_id, amount, type, description, school_id) " +
                               "VALUES (NULL, ?, (SELECT pay_per_session FROM classes WHERE class_id = ?), 'ATTENDANCE_PAY', 'System Attendance Reward', ?)";
 
-            try (PreparedStatement pstWallet = conn.prepareStatement(updateWallet);
+            try (PreparedStatement pstCheck = conn.prepareStatement(checkSql);
+                 PreparedStatement pstWallet = conn.prepareStatement(updateWallet);
                  PreparedStatement pstAttend = conn.prepareStatement(markAttend);
                  PreparedStatement pstLog = conn.prepareStatement(logTrans)) {
 
                 for (String sId : studentIds) {
                     int studentId = Integer.parseInt(sId);
 
-                    // Student Wallet Update
+                    // --- STEP 1: CHECK IF ALREADY MARKED ---
+                    pstCheck.setInt(1, studentId);
+                    pstCheck.setInt(2, classId);
+                    try (ResultSet rs = pstCheck.executeQuery()) {
+                        if (rs.next()) {
+                            continue; // Skip this student, they were already marked today
+                        }
+                    }
+
+                    // --- STEP 2: PROCESS PAYMENT ---
+                    // Wallet update
                     pstWallet.setInt(1, classId);
                     pstWallet.setInt(2, studentId);
                     pstWallet.executeUpdate();
 
-                    // Attendance Mark
+                    // Attendance Record
                     pstAttend.setInt(1, studentId);
                     pstAttend.setInt(2, classId);
                     pstAttend.executeUpdate();
@@ -115,10 +125,19 @@ public class AttendanceServlet extends HttpServlet {
                     pstLog.setInt(2, classId);
                     pstLog.setInt(3, schoolId);
                     pstLog.executeUpdate();
+                    
+                    processedCount++;
                 }
 
                 conn.commit();
-                response.sendRedirect("teacherDashboard?success=1");
+                
+                if (processedCount == 0 && studentIds.length > 0) {
+                    // All selected students were already marked
+                    response.sendRedirect("teacherDashboard?error=already_paid_today");
+                } else {
+                    // Success (some or all students were processed)
+                    response.sendRedirect("teacherDashboard?success=1");
+                }
 
             } catch (SQLException e) {
                 conn.rollback();
@@ -126,7 +145,7 @@ public class AttendanceServlet extends HttpServlet {
             }
         } catch (SQLException e) {
             e.printStackTrace();
-            response.sendRedirect("teacherDashboard?error=already_paid_today");
+            response.sendRedirect("teacherDashboard?error=db_error");
         }
     }
 }
