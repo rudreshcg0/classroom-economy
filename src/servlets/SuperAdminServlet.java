@@ -2,21 +2,74 @@ package servlets;
 
 import java.io.IOException;
 import java.sql.*;
+import java.util.*;
 import jakarta.servlet.*;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
 import utils.DBConnection;
 import models.User;
-import org.mindrot.jbcrypt.BCrypt; // Required for secure password hashing
+import org.mindrot.jbcrypt.BCrypt;
 
 @WebServlet("/superAdminAction")
 public class SuperAdminServlet extends HttpServlet {
+
+    /**
+     * GET handles data retrieval for the dashboard
+     */
+    @Override
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        HttpSession session = request.getSession(false);
+        User user = (session != null) ? (User) session.getAttribute("user") : null;
+
+        if (user == null || !"platform_root".equals(user.getRole())) {
+            response.sendRedirect("login.jsp?error=unauthorized");
+            return;
+        }
+
+        List<Map<String, Object>> schoolList = new ArrayList<>();
+        List<Map<String, Object>> simpleSchoolList = new ArrayList<>();
+
+        try (Connection conn = DBConnection.getConnection()) {
+            // 1. Fetch Schools with their assigned Admins
+            String sql = "SELECT s.school_id, s.school_name, u.username AS admin_name, u.user_id AS admin_id " +
+                         "FROM schools s LEFT JOIN users u ON s.school_id = u.school_id AND u.role = 'school_admin' " +
+                         "ORDER BY s.school_id";
+            
+            try (Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(sql)) {
+                while (rs.next()) {
+                    Map<String, Object> school = new HashMap<>();
+                    school.put("school_id", rs.getInt("school_id"));
+                    school.put("school_name", rs.getString("school_name"));
+                    school.put("admin_name", rs.getString("admin_name"));
+                    school.put("admin_id", rs.getObject("admin_id")); // getObject handles possible nulls
+                    schoolList.add(school);
+                    
+                    // Also populate a simple list for the dropdown
+                    Map<String, Object> simple = new HashMap<>();
+                    simple.put("school_id", rs.getInt("school_id"));
+                    simple.put("school_name", rs.getString("school_name"));
+                    simpleSchoolList.add(simple);
+                }
+            }
+
+            request.setAttribute("schoolList", schoolList);
+            request.setAttribute("simpleSchoolList", simpleSchoolList);
+            request.getRequestDispatcher("super_dashboard.jsp").forward(request, response);
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            response.sendRedirect("login.jsp?error=database");
+        }
+    }
+
+    /**
+     * POST handles administrative actions (Create, Update, Delete)
+     */
+    @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        // --- SECURITY: Strict Role & Session Validation ---
         HttpSession session = request.getSession(false);
         User user = (session != null) ? (User) session.getAttribute("user") : null;
         
-        // Ensure only the top-level 'platform_root' can access these actions
         if (user == null || !"platform_root".equals(user.getRole())) {
             response.sendRedirect("login.jsp?error=unauthorized");
             return;
@@ -40,13 +93,13 @@ public class SuperAdminServlet extends HttpServlet {
                 String adminPass = request.getParameter("adminPass");
                 int schoolId = Integer.parseInt(request.getParameter("schoolId"));
                 
-                // SECURITY: Hash the password with BCrypt before saving to DB
-                String hashedPass = BCrypt.hashpw(adminPass, BCrypt.gensalt());
+                // SECURITY: Hash password before saving
+                String hashedPass = BCrypt.hashpw(adminPass, BCrypt.gensalt(12));
                 
                 String sql = "INSERT INTO users (username, password, role, school_id, must_change_password) VALUES (?, ?, 'school_admin', ?, TRUE)";
                 try (PreparedStatement pst = conn.prepareStatement(sql)) {
                     pst.setString(1, adminUser);
-                    pst.setString(2, hashedPass); // Save hash, not plain text
+                    pst.setString(2, hashedPass);
                     pst.setInt(3, schoolId);
                     pst.executeUpdate();
                 }
@@ -66,7 +119,6 @@ public class SuperAdminServlet extends HttpServlet {
             // --- ACTION: Delete School ---
             else if ("deleteSchool".equals(action)) {
                 int schoolId = Integer.parseInt(request.getParameter("schoolId"));
-                // Note: Ensure your schema has ON DELETE CASCADE for related tables
                 try (PreparedStatement pst = conn.prepareStatement("DELETE FROM schools WHERE school_id = ?")) {
                     pst.setInt(1, schoolId);
                     pst.executeUpdate();
@@ -76,18 +128,18 @@ public class SuperAdminServlet extends HttpServlet {
             // --- ACTION: Delete Administrator ---
             else if ("deleteAdmin".equals(action)) {
                 int adminId = Integer.parseInt(request.getParameter("adminId"));
-                // SECURITY: Explicitly ensure only school_admin accounts are targeted here
                 try (PreparedStatement pst = conn.prepareStatement("DELETE FROM users WHERE user_id = ? AND role = 'school_admin'")) {
                     pst.setInt(1, adminId);
                     pst.executeUpdate();
                 }
             }
             
-            response.sendRedirect("super_dashboard.jsp?success=1");
+            // SECURITY: Use doGet to refresh the data after a post action
+            response.sendRedirect("superAdminAction?success=1");
             
         } catch (SQLException e) {
-            e.printStackTrace(); // Consider using a logger in production
-            response.sendRedirect("super_dashboard.jsp?error=db");
+            e.printStackTrace();
+            response.sendRedirect("superAdminAction?error=db");
         }
     }
 }

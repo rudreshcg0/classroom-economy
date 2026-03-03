@@ -1,37 +1,55 @@
 package utils;
 
-import java.sql.*;
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.Properties;
 import java.io.InputStream;
 
 public class DBConnection {
-    private static String url;
-    private static String user;
-    private static String pass;
+    private static HikariDataSource dataSource;
 
-    // Static block runs once when the class is loaded to read the file
     static {
-        try (InputStream input = DBConnection.class.getClassLoader().getResourceAsStream("utils/db.properties")) {
-            Properties prop = new Properties();
-            if (input == null) {
-                System.out.println("⚠️ Sorry, unable to find db.properties");
+        try {
+            HikariConfig config = new HikariConfig();
+            config.setDriverClassName("org.postgresql.Driver");
+
+            // 1. Try to get credentials from Railway Environment Variables first
+            String dbUrl = System.getenv("DATABASE_URL"); // Railway provides this full URL
+            
+            if (dbUrl != null) {
+                // PRODUCTION MODE (Railway)
+                config.setJdbcUrl(dbUrl);
             } else {
-                prop.load(input);
-                url = prop.getProperty("db.url");
-                user = prop.getProperty("db.user");
-                pass = prop.getProperty("db.pass");
+                // LOCAL DEVELOPMENT MODE (db.properties)
+                try (InputStream input = DBConnection.class.getClassLoader().getResourceAsStream("utils/db.properties")) {
+                    Properties prop = new Properties();
+                    if (input == null) throw new RuntimeException("db.properties not found");
+                    prop.load(input);
+                    
+                    config.setJdbcUrl(prop.getProperty("db.url"));
+                    config.setUsername(prop.getProperty("db.user"));
+                    config.setPassword(prop.getProperty("db.pass"));
+                }
             }
+
+            // 2. Performance Hardening for Production
+            config.setMaximumPoolSize(10);
+            config.setMinimumIdle(2);
+            config.setConnectionTimeout(30000); // 30 seconds
+            config.setIdleTimeout(600000); // 10 minutes
+            config.setMaxLifetime(1800000); // 30 minutes
+
+            dataSource = new HikariDataSource(config);
+
         } catch (Exception ex) {
             ex.printStackTrace();
+            throw new RuntimeException("Database Pool Initialization Failed!", ex);
         }
     }
 
     public static Connection getConnection() throws SQLException {
-        try {
-            Class.forName("org.postgresql.Driver");
-            return DriverManager.getConnection(url, user, pass);
-        } catch (ClassNotFoundException e) {
-            throw new SQLException("JDBC Driver not found!", e);
-        }
+        return dataSource.getConnection();
     }
 }

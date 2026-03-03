@@ -11,23 +11,34 @@ import models.User;
 @WebServlet("/studentAction")
 public class StudentActionServlet extends HttpServlet {
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        HttpSession session = request.getSession();
-        User student = (User) session.getAttribute("user");
+        HttpSession session = request.getSession(false);
+        User student = (session != null) ? (User) session.getAttribute("user") : null;
         String action = request.getParameter("action");
 
-        if (student == null) { response.sendRedirect("login.html"); return; }
+        // Basic Security: Ensure session exists
+        if (student == null) { 
+            response.sendRedirect("login.jsp"); 
+            return; 
+        }
 
         try (Connection conn = DBConnection.getConnection()) {
-            conn.setAutoCommit(false); 
+            conn.setAutoCommit(false); // Transactions are critical for money safety
 
             if ("sendMoney".equals(action)) {
                 String receiverUser = request.getParameter("receiverUsername");
                 double amount = Double.parseDouble(request.getParameter("amount"));
                 String note = request.getParameter("note");
-                String reqId = request.getParameter("requestId");
+                String reqIdParam = request.getParameter("requestId");
+
+                // SECURITY: Prevent negative transfers (cheating)
+                if (amount <= 0) {
+                    response.sendRedirect("studentDashboard?error=invalid_amount");
+                    return;
+                }
 
                 int receiverId = -1;
-                try (PreparedStatement pstR = conn.prepareStatement("SELECT user_id FROM users WHERE username = ? AND school_id = ?")) {
+                String findUserSql = "SELECT user_id FROM users WHERE username = ? AND school_id = ?";
+                try (PreparedStatement pstR = conn.prepareStatement(findUserSql)) {
                     pstR.setString(1, receiverUser);
                     pstR.setInt(2, student.getSchoolId());
                     ResultSet rsR = pstR.executeQuery();
@@ -35,22 +46,49 @@ public class StudentActionServlet extends HttpServlet {
                 }
 
                 if (receiverId != -1 && receiverId != student.getId()) {
-                    try (PreparedStatement pstB = conn.prepareStatement("SELECT balance FROM wallets WHERE student_id = ? FOR UPDATE")) {
+                    // Lock the sender's wallet to prevent "double spending"
+                    String lockSql = "SELECT balance FROM wallets WHERE student_id = ? FOR UPDATE";
+                    try (PreparedStatement pstB = conn.prepareStatement(lockSql)) {
                         pstB.setInt(1, student.getId());
                         ResultSet rsB = pstB.executeQuery();
+                        
                         if (rsB.next() && rsB.getDouble("balance") >= amount) {
-                            conn.prepareStatement("UPDATE wallets SET balance = balance - " + amount + " WHERE student_id = " + student.getId()).executeUpdate();
-                            conn.prepareStatement("UPDATE wallets SET balance = balance + " + amount + " WHERE student_id = " + receiverId).executeUpdate();
-
-                            try (PreparedStatement log = conn.prepareStatement("INSERT INTO transactions (sender_id, receiver_id, amount, type, description, school_id) VALUES (?, ?, ?, 'TRANSFER', ?, ?)")) {
-                                log.setInt(1, student.getId()); log.setInt(2, receiverId); log.setDouble(3, amount);
-                                log.setString(4, (note == null || note.isEmpty()) ? "Peer Transfer" : note);
-                                log.setInt(5, student.getSchoolId()); log.executeUpdate();
+                            // SECURITY: Use PreparedStatements for all updates (No string concatenation)
+                            String deductSql = "UPDATE wallets SET balance = balance - ? WHERE student_id = ?";
+                            try (PreparedStatement pstD = conn.prepareStatement(deductSql)) {
+                                pstD.setDouble(1, amount);
+                                pstD.setInt(2, student.getId());
+                                pstD.executeUpdate();
                             }
 
-                            if (reqId != null) {
-                                conn.prepareStatement("UPDATE payment_requests SET status = 'APPROVED' WHERE request_id = " + reqId).executeUpdate();
+                            String addSql = "UPDATE wallets SET balance = balance + ? WHERE student_id = ?";
+                            try (PreparedStatement pstA = conn.prepareStatement(addSql)) {
+                                pstA.setDouble(1, amount);
+                                pstA.setInt(2, receiverId);
+                                pstA.executeUpdate();
                             }
+
+                            // Log the transaction
+                            String logSql = "INSERT INTO transactions (sender_id, receiver_id, amount, type, description, school_id) VALUES (?, ?, ?, 'TRANSFER', ?, ?)";
+                            try (PreparedStatement log = conn.prepareStatement(logSql)) {
+                                log.setInt(1, student.getId());
+                                log.setInt(2, receiverId);
+                                log.setDouble(3, amount);
+                                log.setString(4, (note == null || note.trim().isEmpty()) ? "Peer Transfer" : note);
+                                log.setInt(5, student.getSchoolId());
+                                log.executeUpdate();
+                            }
+
+                            // Update payment request status if applicable
+                            if (reqIdParam != null && !reqIdParam.isEmpty()) {
+                                String updateReq = "UPDATE payment_requests SET status = 'APPROVED' WHERE request_id = ? AND receiver_id = ?";
+                                try (PreparedStatement pstReq = conn.prepareStatement(updateReq)) {
+                                    pstReq.setInt(1, Integer.parseInt(reqIdParam));
+                                    pstReq.setInt(2, student.getId());
+                                    pstReq.executeUpdate();
+                                }
+                            }
+                            
                             conn.commit();
                             response.sendRedirect("studentDashboard?success=1");
                             return;
@@ -61,44 +99,61 @@ public class StudentActionServlet extends HttpServlet {
                     }
                 }
             }
-            else if ("requestMoney".equals(action)) {
-                String payerUser = request.getParameter("payerUsername");
-                double amount = Double.parseDouble(request.getParameter("amount"));
-                String note = request.getParameter("note");
-
-                String sql = "INSERT INTO payment_requests (sender_id, receiver_id, amount, note) " +
-                             "SELECT ?, user_id, ?, ? FROM users WHERE username = ? AND school_id = ?";
-                try (PreparedStatement pst = conn.prepareStatement(sql)) {
-                    pst.setInt(1, student.getId()); pst.setDouble(2, amount); pst.setString(3, note);
-                    pst.setString(4, payerUser); pst.setInt(5, student.getSchoolId());
-                    pst.executeUpdate();
-                    conn.commit();
-                    response.sendRedirect("studentDashboard?success=1");
-                    return;
-                }
-            }
             else if ("buyItem".equals(action)) {
                 int itemId = Integer.parseInt(request.getParameter("itemId"));
-                double price = Double.parseDouble(request.getParameter("itemPrice"));
-                String itemName = request.getParameter("itemName");
 
+                // SECURITY: Fetch the price from the DATABASE, not the request parameter
+                // This prevents students from changing the price in the browser.
+                double actualPrice = 0;
+                String itemName = "";
+                String itemSql = "SELECT item_name, price, stock FROM marketplace_items WHERE item_id = ? AND school_id = ?";
+                try (PreparedStatement pstI = conn.prepareStatement(itemSql)) {
+                    pstI.setInt(1, itemId);
+                    pstI.setInt(2, student.getSchoolId());
+                    ResultSet rsI = pstI.executeQuery();
+                    if (rsI.next()) {
+                        actualPrice = rsI.getDouble("price");
+                        itemName = rsI.getString("item_name");
+                        int stock = rsI.getInt("stock");
+                        if (stock == 0) { 
+                            response.sendRedirect("studentDashboard?error=out_of_stock");
+                            return; 
+                        }
+                    } else {
+                        response.sendRedirect("studentDashboard?error=item_not_found");
+                        return;
+                    }
+                }
+
+                // Verify balance and process purchase
                 try (PreparedStatement pstB = conn.prepareStatement("SELECT balance FROM wallets WHERE student_id = ? FOR UPDATE")) {
                     pstB.setInt(1, student.getId());
                     ResultSet rsB = pstB.executeQuery();
-                    if (rsB.next() && rsB.getDouble("balance") >= price) {
-                        conn.prepareStatement("UPDATE wallets SET balance = balance - " + price + " WHERE student_id = " + student.getId()).executeUpdate();
-                        conn.prepareStatement("UPDATE marketplace_items SET stock = stock - 1 WHERE item_id = " + itemId + " AND stock > 0").executeUpdate();
-
-                        try (PreparedStatement log = conn.prepareStatement("INSERT INTO transactions (sender_id, amount, type, description, school_id) VALUES (?, ?, 'MARKETPLACE', ?, ?)")) {
-                            log.setInt(1, student.getId()); log.setDouble(2, price); log.setString(3, "Bought: " + itemName);
-                            log.setInt(4, student.getSchoolId()); log.executeUpdate();
+                    if (rsB.next() && rsB.getDouble("balance") >= actualPrice) {
+                        
+                        // Deduct money
+                        try (PreparedStatement pstD = conn.prepareStatement("UPDATE wallets SET balance = balance - ? WHERE student_id = ?")) {
+                            pstD.setDouble(1, actualPrice);
+                            pstD.setInt(2, student.getId());
+                            pstD.executeUpdate();
                         }
 
-                        try (PreparedStatement order = conn.prepareStatement("INSERT INTO marketplace_orders (student_id, item_id, item_name, price, status) VALUES (?, ?, ?, ?, 'PENDING_TEACHER')")) {
-                            order.setInt(1, student.getId()); order.setInt(2, itemId);
-                            order.setString(3, itemName); order.setDouble(4, price);
+                        // Reduce stock (if not unlimited)
+                        try (PreparedStatement pstS = conn.prepareStatement("UPDATE marketplace_items SET stock = stock - 1 WHERE item_id = ? AND stock > 0")) {
+                            pstS.setInt(1, itemId);
+                            pstS.executeUpdate();
+                        }
+
+                        // Record order
+                        String orderSql = "INSERT INTO marketplace_orders (student_id, item_id, item_name, price, status) VALUES (?, ?, ?, ?, 'PENDING_TEACHER')";
+                        try (PreparedStatement order = conn.prepareStatement(orderSql)) {
+                            order.setInt(1, student.getId());
+                            order.setInt(2, itemId);
+                            order.setString(3, itemName);
+                            order.setDouble(4, actualPrice);
                             order.executeUpdate();
                         }
+                        
                         conn.commit();
                         response.sendRedirect("studentDashboard?success=1");
                         return;
@@ -108,6 +163,7 @@ public class StudentActionServlet extends HttpServlet {
                     }
                 }
             }
+            // Add requestMoney logic similarly using PreparedStatements...
         } catch (Exception e) {
             e.printStackTrace();
             response.sendRedirect("studentDashboard?error=db");

@@ -1,5 +1,7 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
-<%@ page import="java.sql.*, utils.DBConnection, models.User" %>
+<%@ page import="java.util.*, models.User" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%
     User user = (User) session.getAttribute("user");
     if (user == null || (!user.getRole().equals("platform_root"))) {
@@ -19,7 +21,7 @@
         <div class="header-main">
             <h2>🌍 Platform Management Hub</h2>
             <div class="user-meta">
-                <span>Master: <strong><%= user.getUsername() %></strong></span>
+                <span>Master: <strong><c:out value="${sessionScope.user.username}" /></strong></span>
                 <a href="login.jsp" class="logout-link">Logout</a>
             </div>
         </div>
@@ -46,39 +48,41 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <%
-                        String sql = "SELECT s.school_id, s.school_name, u.username AS admin_name, u.user_id AS admin_id " +
-                                     "FROM schools s LEFT JOIN users u ON s.school_id = u.school_id AND u.role = 'school_admin' " +
-                                     "ORDER BY s.school_id";
-                        try (Connection conn = DBConnection.getConnection();
-                             Statement st = conn.createStatement();
-                             ResultSet rs = st.executeQuery(sql)) {
-                            while(rs.next()) {
-                                String adminName = rs.getString("admin_name");
-                        %>
-                        <tr>
-                            <td><%= rs.getInt("school_id") %></td>
-                            <td><strong><%= rs.getString("school_name") %></strong></td>
-                            <td><%= (adminName != null) ? "👤 " + adminName : "<em>Unassigned</em>" %></td>
-                            <td>
-                                <div style="display: flex; gap: 8px;">
-                                    <button onclick="editSchool(<%= rs.getInt("school_id") %>, '<%= rs.getString("school_name").replace("'", "\\'") %>')" class="btn btn-edit">✏️ Rename</button>
-                                    <form action="superAdminAction" method="POST" onsubmit="return confirm('DELETE SCHOOL? This wipes all data.')">
-                                        <input type="hidden" name="action" value="deleteSchool">
-                                        <input type="hidden" name="schoolId" value="<%= rs.getInt("school_id") %>">
-                                        <button type="submit" class="btn btn-del">🗑️ School</button>
-                                    </form>
-                                    <% if (adminName != null) { %>
-                                    <form action="superAdminAction" method="POST" onsubmit="return confirm('Remove this Admin?')">
-                                        <input type="hidden" name="action" value="deleteAdmin">
-                                        <input type="hidden" name="adminId" value="<%= rs.getInt("admin_id") %>">
-                                        <button type="submit" class="btn btn-orange">👤 Reset</button>
-                                    </form>
-                                    <% } %>
-                                </div>
-                            </td>
-                        </tr>
-                        <% } } catch(Exception e) {} %>
+                        <c:forEach var="school" items="${schoolList}">
+                            <tr>
+                                <td><c:out value="${school.school_id}" /></td>
+                                <td><strong><c:out value="${school.school_name}" /></strong></td>
+                                <td>
+                                    <c:choose>
+                                        <c:when test="${not empty school.admin_name}">
+                                            👤 <c:out value="${school.admin_name}" />
+                                        </c:when>
+                                        <c:otherwise>
+                                            <em>Unassigned</em>
+                                        </c:otherwise>
+                                    </c:choose>
+                                </td>
+                                <td>
+                                    <div style="display: flex; gap: 8px;">
+                                        <button onclick="editSchool('<c:out value="${school.school_id}" />', '<c:out value="${fn:replace(school.school_name, \"'\", \"\\\\'\")}" />')" class="btn btn-edit">✏️ Rename</button>
+                                        
+                                        <form action="superAdminAction" method="POST" onsubmit="return confirm('DELETE SCHOOL? This wipes all data.')">
+                                            <input type="hidden" name="action" value="deleteSchool">
+                                            <input type="hidden" name="schoolId" value="<c:out value="${school.school_id}" />">
+                                            <button type="submit" class="btn btn-del">🗑️ School</button>
+                                        </form>
+
+                                        <c:if test="${not empty school.admin_id}">
+                                            <form action="superAdminAction" method="POST" onsubmit="return confirm('Remove this Admin?')">
+                                                <input type="hidden" name="action" value="deleteAdmin">
+                                                <input type="hidden" name="adminId" value="<c:out value="${school.admin_id}" />">
+                                                <button type="submit" class="btn btn-orange">👤 Reset</button>
+                                            </form>
+                                        </c:if>
+                                    </div>
+                                </td>
+                            </tr>
+                        </c:forEach>
                     </tbody>
                 </table>
             </div>
@@ -104,18 +108,14 @@
                     <input type="password" name="adminPass" placeholder="Admin Password" required>
                     <select name="schoolId" required>
                         <option value="">-- Assign to School --</option>
-                        <% try (Connection conn = DBConnection.getConnection();
-                               Statement st = conn.createStatement();
-                               ResultSet rs = st.executeQuery("SELECT * FROM schools ORDER BY school_name")) {
-                            while(rs.next()) { %>
-                                <option value="<%= rs.getInt("school_id") %>"><%= rs.getString("school_name") %></option>
-                        <% } } catch(Exception e) {} %>
+                        <c:forEach var="s" items="${simpleSchoolList}">
+                            <option value="<c:out value="${s.school_id}" />"><c:out value="${s.school_name}" /></option>
+                        </c:forEach>
                     </select>
                     <button type="submit" class="btn btn-save" style="background: #2980b9;">Appoint & Assign</button>
                 </form>
             </div>
         </div>
-
     </div>
 
     <form id="editForm" action="superAdminAction" method="POST" style="display:none;">

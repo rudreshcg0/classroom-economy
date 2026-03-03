@@ -8,7 +8,7 @@ import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
 import utils.DBConnection;
 import models.User;
-import org.mindrot.jbcrypt.BCrypt; // Required for secure password hashing
+import org.mindrot.jbcrypt.BCrypt;
 
 @WebServlet("/teacherAction")
 public class TeacherActionServlet extends HttpServlet {
@@ -33,17 +33,28 @@ public class TeacherActionServlet extends HttpServlet {
                 String rollNo = request.getParameter("rollNo");
                 String email = request.getParameter("email");
 
-                // SECURITY: Hash password with BCrypt before saving to DB
-                String hashedPass = BCrypt.hashpw(studentPass, BCrypt.gensalt());
+                // SECURITY: Hash password before saving
+                String hashedPass = BCrypt.hashpw(studentPass, BCrypt.gensalt(12));
 
                 String sql = "INSERT INTO users (username, password, role, school_id, roll_no, email, must_change_password) VALUES (?, ?, 'student', ?, ?, ?, TRUE)";
-                try (PreparedStatement pst = conn.prepareStatement(sql)) {
+                try (PreparedStatement pst = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
                     pst.setString(1, studentUser);
-                    pst.setString(2, hashedPass); // Save hash, not plain text
-                    pst.setInt(3, teacher.getSchoolId()); // Forced data isolation
+                    pst.setString(2, hashedPass);
+                    pst.setInt(3, teacher.getSchoolId()); // Forced isolation
                     pst.setString(4, rollNo);
                     pst.setString(5, email);
                     pst.executeUpdate();
+                    
+                    // Also initialize a wallet for the new student
+                    ResultSet rs = pst.getGeneratedKeys();
+                    if (rs.next()) {
+                        int newStudentId = rs.getInt(1);
+                        try (PreparedStatement pstW = conn.prepareStatement("INSERT INTO wallets (student_id, school_id, balance) VALUES (?, ?, 0.00)")) {
+                            pstW.setInt(1, newStudentId);
+                            pstW.setInt(2, teacher.getSchoolId());
+                            pstW.executeUpdate();
+                        }
+                    }
                 }
                 conn.commit();
             }
@@ -53,7 +64,7 @@ public class TeacherActionServlet extends HttpServlet {
                 String sql = "INSERT INTO marketplace_items (teacher_id, school_id, item_name, price, stock, item_description) VALUES (?, ?, ?, ?, ?, ?)";
                 try (PreparedStatement pst = conn.prepareStatement(sql)) {
                     pst.setInt(1, teacher.getId());
-                    pst.setInt(2, teacher.getSchoolId());
+                    pst.setInt(2, teacher.getSchoolId()); // Forced isolation
                     pst.setString(3, request.getParameter("itemName"));
                     pst.setDouble(4, Double.parseDouble(request.getParameter("price")));
                     pst.setInt(5, Integer.parseInt(request.getParameter("stock")));
@@ -73,14 +84,15 @@ public class TeacherActionServlet extends HttpServlet {
                         int orderId = Integer.parseInt(idStr);
                         
                         if ("REJECTED".equals(decision)) {
-                            // SECURITY: Fetch details and verify order belongs to this teacher's items
+                            // SECURITY: Verify order belongs to this teacher AND school
                             String sqlFind = "SELECT o.student_id, o.item_id, o.price, o.item_name FROM marketplace_orders o " +
                                              "JOIN marketplace_items i ON o.item_id = i.item_id " +
-                                             "WHERE o.order_id = ? AND i.teacher_id = ?";
+                                             "WHERE o.order_id = ? AND i.teacher_id = ? AND i.school_id = ?";
                             
                             try (PreparedStatement pstF = conn.prepareStatement(sqlFind)) {
                                 pstF.setInt(1, orderId);
                                 pstF.setInt(2, teacher.getId());
+                                pstF.setInt(3, teacher.getSchoolId());
                                 ResultSet rsF = pstF.executeQuery();
                                 
                                 if (rsF.next()) {
@@ -89,24 +101,21 @@ public class TeacherActionServlet extends HttpServlet {
                                     double price = rsF.getDouble("price");
                                     String item = rsF.getString("item_name");
 
-                                    // Refund Wallet
-                                    String sqlRefund = "UPDATE wallets SET balance = balance + ? WHERE student_id = ?";
-                                    try (PreparedStatement pstR = conn.prepareStatement(sqlRefund)) {
+                                    // Refund Wallet using PreparedStatements
+                                    try (PreparedStatement pstR = conn.prepareStatement("UPDATE wallets SET balance = balance + ? WHERE student_id = ?")) {
                                         pstR.setDouble(1, price);
                                         pstR.setInt(2, studentId);
                                         pstR.executeUpdate();
                                     }
 
                                     // Restock item
-                                    String sqlRestock = "UPDATE marketplace_items SET stock = stock + 1 WHERE item_id = ? AND stock <> -1";
-                                    try (PreparedStatement pstRS = conn.prepareStatement(sqlRestock)) {
+                                    try (PreparedStatement pstRS = conn.prepareStatement("UPDATE marketplace_items SET stock = stock + 1 WHERE item_id = ? AND stock <> -1")) {
                                         pstRS.setInt(1, itemId);
                                         pstRS.executeUpdate();
                                     }
 
                                     // Log Transaction
-                                    String sqlLog = "INSERT INTO transactions (receiver_id, amount, type, description, school_id) VALUES (?, ?, 'REFUND', ?, ?)";
-                                    try (PreparedStatement pstL = conn.prepareStatement(sqlLog)) {
+                                    try (PreparedStatement pstL = conn.prepareStatement("INSERT INTO transactions (receiver_id, amount, type, description, school_id) VALUES (?, ?, 'REFUND', ?, ?)")) {
                                         pstL.setInt(1, studentId);
                                         pstL.setDouble(2, price);
                                         pstL.setString(3, "Refund: " + item + " (Rejected)");
@@ -118,9 +127,8 @@ public class TeacherActionServlet extends HttpServlet {
                         }
                     }
 
-                    // Update Order Statuses
+                    // Update Order Statuses securely
                     String finalStatus = "APPROVED".equals(decision) ? "COMPLETED" : "REJECTED";
-                    // SECURITY: Using ANY(?) with PreparedStatement to prevent SQL injection in arrays
                     String sqlUpdate = "UPDATE marketplace_orders SET status = ? WHERE order_id = ANY(?)";
                     try (PreparedStatement pstU = conn.prepareStatement(sqlUpdate)) {
                         pstU.setString(1, finalStatus);
@@ -135,7 +143,7 @@ public class TeacherActionServlet extends HttpServlet {
             response.sendRedirect("teacherDashboard?success=1");
 
         } catch (Exception e) {
-            e.printStackTrace(); // Consider using a logger for production
+            e.printStackTrace();
             response.sendRedirect("teacherDashboard?error=system");
         }
     }

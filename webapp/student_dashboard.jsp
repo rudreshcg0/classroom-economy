@@ -1,5 +1,7 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ page import="java.util.*, models.User" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%
     User userObj = (User) session.getAttribute("user");
     if (userObj == null) {
@@ -8,6 +10,8 @@
     }
     String fullName = (userObj.getFullName() != null && !userObj.getFullName().isEmpty()) ? userObj.getFullName() : "Student";
     char avatarLetter = fullName.charAt(0);
+    request.setAttribute("fullName", fullName);
+    request.setAttribute("avatarLetter", avatarLetter);
 %>
 <!DOCTYPE html>
 <html>
@@ -26,9 +30,9 @@
     <h2>VCES Pay</h2>
     
     <div style="padding: 10px; background: #0f172a; border-radius: 12px; margin-bottom: 20px; text-align: center;">
-        <div class="avatar-circle" style="margin: 0 auto 10px;"><%= avatarLetter %></div>
-        <div style="font-weight: bold; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><%= fullName %></div>
-        <small style="color: #64748b;">Roll No: ${sessionScope.user.rollNo}</small>
+        <div class="avatar-circle" style="margin: 0 auto 10px;"><c:out value="${avatarLetter}" /></div>
+        <div style="font-weight: bold; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><c:out value="${fullName}" /></div>
+        <small style="color: #64748b;">Roll No: <c:out value="${sessionScope.user.rollNo}" /></small>
     </div>
 
     <div class="nav-item active" onclick="openTab(event, 'home')">🏠 Dashboard</div>
@@ -42,47 +46,57 @@
     <div id="home" class="tab active">
         <div class="balance-card">
             <small>WALLET BALANCE</small>
-            <h1 style="margin: 5px 0; font-size: 42px;">₹${balance != null ? balance : '0.00'}</h1>
-            <p style="margin: 0; opacity: 0.8;">Welcome back, <%= fullName %>!</p>
+            <h1 style="margin: 5px 0; font-size: 42px;">₹<c:out value="${balance != null ? balance : '0.00'}" /></h1>
+            <p style="margin: 0; opacity: 0.8;">Welcome back, <c:out value="${fullName}" />!</p>
         </div>
 
         <div class="card">
             <h3>🔔 Pending Payment Requests</h3>
-            <% List<Map<String, Object>> pr = (List<Map<String, Object>>)request.getAttribute("pendingRequests");
-               if(pr != null && !pr.isEmpty()) { for(Map<String, Object> r : pr) { %>
-                <div style="background:#fffbeb; padding:15px; border-radius:12px; border:1px solid #fcd34d; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
-                    <div><strong><%= r.get("from") %></strong>: ₹<%= r.get("amt") %><br><small>"<%= r.get("note") %>"</small></div>
-                    <form action="studentAction" method="POST">
-                        <input type="hidden" name="action" value="sendMoney">
-                        <input type="hidden" name="requestId" value="<%= r.get("id") %>">
-                        <input type="hidden" name="receiverUsername" value="<%= r.get("from") %>">
-                        <input type="hidden" name="amount" value="<%= r.get("amt") %>">
-                        <button type="submit" class="btn" style="background:#059669; width:auto; padding: 8px 15px;">Pay Now</button>
-                    </form>
-                </div>
-            <% } } else { %> <p style="color: #94a3b8;">No new requests.</p> <% } %>
+            <c:choose>
+                <c:when test="${not empty pendingRequests}">
+                    <c:forEach var="r" items="${pendingRequests}">
+                        <div style="background:#fffbeb; padding:15px; border-radius:12px; border:1px solid #fcd34d; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <strong><c:out value="${r.from}" /></strong>: ₹<c:out value="${r.amt}" /><br>
+                                <small>"<c:out value="${r.note}" />"</small>
+                            </div>
+                            <form action="studentAction" method="POST">
+                                <input type="hidden" name="action" value="sendMoney">
+                                <input type="hidden" name="requestId" value="<c:out value='${r.id}' />">
+                                <input type="hidden" name="receiverUsername" value="<c:out value='${r.from}' />">
+                                <input type="hidden" name="amount" value="<c:out value='${r.amt}' />">
+                                <button type="submit" class="btn" style="background:#059669; width:auto; padding: 8px 15px;">Pay Now</button>
+                            </form>
+                        </div>
+                    </c:forEach>
+                </c:when>
+                <c:otherwise>
+                    <p style="color: #94a3b8;">No new requests.</p>
+                </c:otherwise>
+            </c:choose>
         </div>
 
         <div class="card">
             <h3>Recent Wallet Activity</h3>
             <table>
-                <% List<Map<String, Object>> hist = (List<Map<String, Object>>)request.getAttribute("history");
-                   if(hist != null && !hist.isEmpty()) { 
-                       for(Map<String, Object> h : hist) { 
-                           boolean isCredit = (boolean)h.get("isCredit"); 
-                %>
-                    <tr>
-                        <td style="padding: 12px 0;">
-                            <div style="font-weight: 500;"><%= h.get("desc") %></div>
-                            <small style="color: #94a3b8;"><%= h.get("date") %></small>
-                        </td>
-                        <td align="right" class="<%= isCredit ? "text-green" : "text-red" %>" style="font-weight:bold; font-size: 16px;">
-                            <%= isCredit ? "+" : "-" %>₹<%= h.get("amount") %>
-                        </td>
-                    </tr>
-                <% } } else { %>
-                    <tr><td colspan="2" style="text-align: center; color: #94a3b8; padding: 20px;">No recent transactions.</td></tr>
-                <% } %>
+                <c:choose>
+                    <c:when test="${not empty history}">
+                        <c:forEach var="h" items="${history}">
+                            <tr>
+                                <td style="padding: 12px 0;">
+                                    <div style="font-weight: 500;"><c:out value="${h.desc}" /></div>
+                                    <small style="color: #94a3b8;"><c:out value="${h.date}" /></small>
+                                </td>
+                                <td align="right" class="${h.isCredit ? 'text-green' : 'text-red'}" style="font-weight:bold; font-size: 16px;">
+                                    <c:out value="${h.isCredit ? '+' : '-'}" />₹<c:out value="${h.amount}" />
+                                </td>
+                            </tr>
+                        </c:forEach>
+                    </c:when>
+                    <c:otherwise>
+                        <tr><td colspan="2" style="text-align: center; color: #94a3b8; padding: 20px;">No recent transactions.</td></tr>
+                    </c:otherwise>
+                </c:choose>
             </table>
         </div>
     </div>
@@ -113,37 +127,39 @@
     <div id="shop" class="tab">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
             <h2 style="margin: 0;">Marketplace</h2>
-            <button class="btn toggle-btn" id="studentMarketBtn" onclick="toggleStudentMarket()">📜 View Order History</button>
+            <button class="btn toggle-btn" id="studentMarketBtn" onclick="toggleStudentMarket()">📜 Order History</button>
         </div>
         <div id="marketStoreGrid">
             <div class="item-grid">
-                <% List<Map<String, Object>> items = (List<Map<String, Object>>)request.getAttribute("availableItems");
-                   if(items != null) { for(Map<String, Object> i : items) { int stock = (int)i.get("stock"); %>
+                <c:forEach var="i" items="${availableItems}">
                     <div class="card" style="border:1px solid #e2e8f0; display:flex; flex-direction:column; justify-content:space-between;">
                         <div>
-                            <h4><%= i.get("name") %></h4>
-                            <p style="font-size:12px; color:#64748b;"><%= i.get("desc") %></p>
+                            <h4><c:out value="${i.name}" /></h4>
+                            <p style="font-size:12px; color:#64748b;"><c:out value="${i.desc}" /></p>
                         </div>
                         <div style="margin-top:10px;">
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                                <span class="text-green" style="font-weight:bold; font-size:18px;">₹<%= i.get("price") %></span>
-                                <span id="stock-count-<%= i.get("id") %>" style="font-size:11px; color:#94a3b8;"><%= stock == -1 ? "♾️ Unlimited" : stock + " left" %></span>
+                                <span class="text-green" style="font-weight:bold; font-size:18px;">₹<c:out value="${i.price}" /></span>
+                                <span style="font-size:11px; color:#94a3b8;">
+                                    <c:out value="${i.stock == -1 ? '♾️ Unlimited' : i.stock.concat(' left')}" />
+                                </span>
                             </div>
                             <form action="studentAction" method="POST">
                                 <input type="hidden" name="action" value="buyItem">
-                                <input type="hidden" name="itemId" value="<%= i.get("id") %>">
-                                <input type="hidden" name="itemPrice" value="<%= i.get("price") %>">
-                                <input type="hidden" name="itemName" value="<%= i.get("name") %>">
-                                <button type="submit" id="buy-btn-<%= i.get("id") %>" class="btn" style="background:#f59e0b;" <%= stock == 0 ? "disabled" : "" %>><%= stock == 0 ? "Sold Out" : "Buy Now" %></button>
+                                <input type="hidden" name="itemId" value="<c:out value='${i.id}' />">
+                                <input type="hidden" name="itemName" value="<c:out value='${i.name}' />">
+                                <button type="submit" class="btn" style="background:#f59e0b;" ${i.stock == 0 ? 'disabled' : ''}>
+                                    <c:out value="${i.stock == 0 ? 'Sold Out' : 'Buy Now'}" />
+                                </button>
                             </form>
                         </div>
                     </div>
-                <% } } %>
+                </c:forEach>
             </div>
         </div>
         <div id="marketHistoryAudit" style="display: none;">
             <div class="card">
-                <input type="text" id="auditSearch" onkeyup="filterStudentAudit()" placeholder="🔍 Search orders by item name or status..." class="search-bar">
+                <input type="text" id="auditSearch" onkeyup="filterStudentAudit()" placeholder="🔍 Search orders..." class="search-bar">
                 <table>
                     <thead>
                         <tr style="background: #f8fafc;">
@@ -151,19 +167,20 @@
                         </tr>
                     </thead>
                     <tbody id="auditTableBody">
-                        <% List<Map<String, Object>> myOrders = (List<Map<String, Object>>)request.getAttribute("myOrders");
-                           if(myOrders != null) { for(Map<String, Object> o : myOrders) { String status = (String)o.get("status"); %>
+                        <c:forEach var="o" items="${myOrders}">
                             <tr class="audit-row">
-                                <td class="order-item"><strong><%= o.get("item_name") %></strong></td>
-                                <td>₹<%= o.get("price") %></td>
-                                <td><small><%= o.get("date") %></small></td>
+                                <td class="order-item"><strong><c:out value="${o.item_name}" /></strong></td>
+                                <td>₹<c:out value="${o.price}" /></td>
+                                <td><small><c:out value="${o.date}" /></small></td>
                                 <td class="order-status">
-                                    <% if("PENDING_TEACHER".equals(status)) { %><span style="color: #f59e0b;">⏳ Pending</span>
-                                    <% } else if("COMPLETED".equals(status)) { %><span class="text-green">✅ Approved</span>
-                                    <% } else { %><span class="text-red">❌ Rejected</span><% } %>
+                                    <c:choose>
+                                        <c:when test="${o.status == 'PENDING_TEACHER'}"><span style="color: #f59e0b;">⏳ Pending</span></c:when>
+                                        <c:when test="${o.status == 'COMPLETED'}"><span class="text-green">✅ Approved</span></c:when>
+                                        <c:otherwise><span class="text-red">❌ Rejected</span></c:otherwise>
+                                    </c:choose>
                                 </td>
                             </tr>
-                        <% } } %>
+                        </c:forEach>
                     </tbody>
                 </table>
             </div>
@@ -175,15 +192,14 @@
         <div class="card">
             <form action="updateProfile" method="POST">
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                    <div><label style="font-weight: bold; color: #64748b; font-size: 13px;">FULL NAME</label><input type="text" value="${sessionScope.user.fullName}" disabled style="background: #f1f5f9;"></div>
-                    <div><label style="font-weight: bold; color: #64748b; font-size: 13px;">ROLL NUMBER</label><input type="text" value="${sessionScope.user.rollNo}" disabled style="background: #f1f5f9;"></div>
-                    <div><label style="font-weight: bold; color: #64748b; font-size: 13px;">EMAIL ADDRESS</label><input type="text" value="${sessionScope.user.email}" disabled style="background: #f1f5f9;"></div>
-                    <div><label style="font-weight: bold; color: #64748b; font-size: 13px;">SYSTEM USERNAME</label><input type="text" value="${sessionScope.user.username}" disabled style="background: #f1f5f9;"></div>
-                    <div><label style="font-weight: bold; color: #10b981; font-size: 13px;">BIRTHDATE</label><input type="date" name="birthdate" value="${sessionScope.user.birthdate}" required></div>
+                    <div><label style="font-weight: bold; color: #64748b; font-size: 13px;">FULL NAME</label><input type="text" value="<c:out value='${sessionScope.user.fullName}' />" disabled style="background: #f1f5f9;"></div>
+                    <div><label style="font-weight: bold; color: #64748b; font-size: 13px;">ROLL NUMBER</label><input type="text" value="<c:out value='${sessionScope.user.rollNo}' />" disabled style="background: #f1f5f9;"></div>
+                    <div><label style="font-weight: bold; color: #64748b; font-size: 13px;">EMAIL ADDRESS</label><input type="text" value="<c:out value='${sessionScope.user.email}' />" disabled style="background: #f1f5f9;"></div>
+                    <div><label style="font-weight: bold; color: #64748b; font-size: 13px;">SYSTEM USERNAME</label><input type="text" value="<c:out value='${sessionScope.user.username}' />" disabled style="background: #f1f5f9;"></div>
+                    <div><label style="font-weight: bold; color: #10b981; font-size: 13px;">BIRTHDATE</label><input type="date" name="birthdate" value="<c:out value='${sessionScope.user.birthdate}' />" required></div>
                 </div>
                 <div style="margin-top: 20px; border-top: 1px solid #f1f5f9; padding-top: 20px;">
                     <button type="submit" class="btn" style="background: #10b981; width: auto; padding: 12px 40px;">Save</button>
-                    <p style="font-size: 12px; color: #94a3b8; margin-top: 10px;">Note: Name and Email can only be changed by your teacher.</p>
                 </div>
             </form>
         </div>

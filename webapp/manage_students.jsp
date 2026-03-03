@@ -1,5 +1,7 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ page import="java.util.*, models.User" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <!DOCTYPE html>
 <html>
 <head>
@@ -10,7 +12,7 @@
 
 <div class="sidebar">
     <h2>VCES Admin</h2>
-    <p style="color: #a0aec0; margin-bottom: 20px;">Teacher: <strong>${sessionScope.user.username}</strong></p>
+    <p style="color: #a0aec0; margin-bottom: 20px;">Teacher: <strong><c:out value="${sessionScope.user.username}" /></strong></p>
     <nav>
         <a href="teacherDashboard" class="sidebar-link">🏠 Dashboard Overview</a>
         <a href="markAttendance" class="sidebar-link">📝 Mark Attendance</a>
@@ -45,10 +47,9 @@
                     <input type="hidden" name="action" value="enroll">
                     <select name="classId" required>
                         <option value="">Select Target Class</option>
-                        <% List<Map<String, Object>> classes = (List<Map<String, Object>>)request.getAttribute("classes");
-                           if(classes != null) for(Map<String, Object> c : classes) { %>
-                            <option value="<%= c.get("id") %>"><%= c.get("name") %></option>
-                        <% } %>
+                        <c:forEach var="c" items="${classes}">
+                            <option value="<c:out value='${c.id}' />"><c:out value="${c.name}" /></option>
+                        </c:forEach>
                     </select>
                     
                     <div class="search-container" style="margin-top:10px;">
@@ -61,12 +62,12 @@
                             <input type="checkbox" onclick="toggleEnrollAll(this)"> Select Visible
                         </label>
                         <div id="enrollListBody">
-                            <% List<User> studentList = (List<User>)request.getAttribute("students");
-                               if(studentList != null) for(User s : studentList) { %>
+                            <c:forEach var="s" items="${students}">
                                 <label class="enroll-item" style="display:block; padding: 8px 12px; border: 1px solid #f1f5f9; border-radius:8px; margin-bottom:5px; cursor: pointer;">
-                                    <input type="checkbox" name="studentIds" value="<%= s.getId() %>"> <%= s.getUsername() %> [Roll: <%= s.getRollNo() %>]
+                                    <input type="checkbox" name="studentIds" value="<c:out value='${s.id}' />"> 
+                                    <c:out value="${s.username}" /> [Roll: <c:out value="${s.rollNo}" />]
                                 </label>
-                            <% } %>
+                            </c:forEach>
                         </div>
                     </div>
                     <button type="submit" class="btn btn-warning" style="margin-top:15px;">Confirm Enrollment</button>
@@ -81,9 +82,9 @@
             <div style="display:flex; gap: 15px; margin-bottom: 20px;">
                 <select id="classFilter" onchange="applyRegistryFilter()" style="flex:1; margin-bottom:0;">
                     <option value="all">Full Registry (System Termination)</option>
-                    <% if(classes != null) for(Map<String, Object> c : classes) { %>
-                        <option value="<%= c.get("id") %>"><%= c.get("name") %> (Class Unenrollment)</option>
-                    <% } %>
+                    <c:forEach var="c" items="${classes}">
+                        <option value="<c:out value='${c.id}' />"><c:out value="${c.name}" /> (Class Unenrollment)</option>
+                    </c:forEach>
                 </select>
                 <input type="text" id="registrySearch" onkeyup="applyRegistryFilter()" placeholder="Search registry..." style="flex:1; margin-bottom:0;">
                 <button type="button" class="btn btn-danger" onclick="executeRegistryAction()" id="batchBtn" style="padding: 0 25px;">Terminate Selected</button>
@@ -102,20 +103,22 @@
                         </tr>
                     </thead>
                     <tbody id="registryBody">
-                        <% List<Map<String, Object>> enrolls = (List<Map<String, Object>>)request.getAttribute("enrollments");
-                           if(studentList != null) for(User s : studentList) { 
-                               String cIds = ""; String cNames = "";
-                               if(enrolls != null) for(Map<String, Object> e : enrolls) {
-                                   if((int)e.get("sId") == s.getId()) { cIds += e.get("cId") + ","; cNames += e.get("cName") + ", "; }
-                               }
-                        %>
-                        <tr class="registry-row" data-enrollments="<%= cIds %>">
-                            <td><input type="checkbox" name="studentIds" value="<%= s.getId() %>"></td>
-                            <td><%= s.getRollNo() %></td>
-                            <td><strong><%= s.getUsername() %></strong></td>
-                            <td><small><%= cNames %></small></td>
-                        </tr>
-                        <% } %>
+                        <c:forEach var="s" items="${students}">
+                            <c:set var="cIds" value="" />
+                            <c:set var="cNames" value="" />
+                            <c:forEach var="e" items="${enrollments}">
+                                <c:if test="${e.sId == s.id}">
+                                    <c:set var="cIds" value="${cIds}${e.cId}," />
+                                    <c:set var="cNames" value="${cNames}${e.cName}, " />
+                                </c:if>
+                            </c:forEach>
+                            <tr class="registry-row" data-enrollments="<c:out value='${cIds}' />">
+                                <td><input type="checkbox" name="studentIds" value="<c:out value='${s.id}' />"></td>
+                                <td><c:out value="${s.rollNo}" /></td>
+                                <td><strong><c:out value="${s.username}" /></strong></td>
+                                <td><small><c:out value="${cNames}" /></small></td>
+                            </tr>
+                        </c:forEach>
                     </tbody>
                 </table>
             </form>
