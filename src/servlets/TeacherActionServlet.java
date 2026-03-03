@@ -8,44 +8,47 @@ import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
 import utils.DBConnection;
 import models.User;
+import org.mindrot.jbcrypt.BCrypt; // Required for secure password hashing
 
 @WebServlet("/teacherAction")
 public class TeacherActionServlet extends HttpServlet {
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        HttpSession session = request.getSession();
-        User teacher = (User) session.getAttribute("user");
+        HttpSession session = request.getSession(false);
+        User teacher = (session != null) ? (User) session.getAttribute("user") : null;
         String action = request.getParameter("action");
 
-        // Updated redirect to .jsp
-        if (teacher == null || !teacher.getRole().equalsIgnoreCase("teacher")) {
-            response.sendRedirect("login.jsp"); 
+        // --- SECURITY: Strict Role & Session Validation ---
+        if (teacher == null || !"teacher".equalsIgnoreCase(teacher.getRole())) {
+            response.sendRedirect("login.jsp?error=unauthorized");
             return;
         }
 
         try (Connection conn = DBConnection.getConnection()) {
             conn.setAutoCommit(false); 
 
-          // --- NEW: Student Creation Logic ---
+            // --- ACTION: Student Creation ---
             if ("addStudent".equals(action)) {
                 String studentUser = request.getParameter("username");
                 String studentPass = request.getParameter("password");
                 String rollNo = request.getParameter("rollNo");
-                String email = request.getParameter("email"); // Added email parameter
+                String email = request.getParameter("email");
 
-                // UPDATED SQL: Added email column and one extra '?'
+                // SECURITY: Hash password with BCrypt before saving to DB
+                String hashedPass = BCrypt.hashpw(studentPass, BCrypt.gensalt());
+
                 String sql = "INSERT INTO users (username, password, role, school_id, roll_no, email, must_change_password) VALUES (?, ?, 'student', ?, ?, ?, TRUE)";
                 try (PreparedStatement pst = conn.prepareStatement(sql)) {
                     pst.setString(1, studentUser);
-                    pst.setString(2, studentPass);
-                    pst.setInt(3, teacher.getSchoolId());
+                    pst.setString(2, hashedPass); // Save hash, not plain text
+                    pst.setInt(3, teacher.getSchoolId()); // Forced data isolation
                     pst.setString(4, rollNo);
-                    pst.setString(5, email); // Set the email value
+                    pst.setString(5, email);
                     pst.executeUpdate();
                 }
                 conn.commit();
             }
             
-            // --- Existing Marketplace Logic ---
+            // --- ACTION: Create Marketplace Item ---
             else if ("createItem".equals(action)) {
                 String sql = "INSERT INTO marketplace_items (teacher_id, school_id, item_name, price, stock, item_description) VALUES (?, ?, ?, ?, ?, ?)";
                 try (PreparedStatement pst = conn.prepareStatement(sql)) {
@@ -59,6 +62,8 @@ public class TeacherActionServlet extends HttpServlet {
                 }
                 conn.commit();
             } 
+
+            // --- ACTION: Bulk Process Orders ---
             else if ("bulkProcess".equals(action)) {
                 String decision = request.getParameter("decision"); 
                 String[] selectedIds = request.getParameterValues("selectedOrders");
@@ -68,18 +73,23 @@ public class TeacherActionServlet extends HttpServlet {
                         int orderId = Integer.parseInt(idStr);
                         
                         if ("REJECTED".equals(decision)) {
-                            // 1. Fetch details for Refund & Restock
-                            String sqlFind = "SELECT student_id, item_id, price, item_name FROM marketplace_orders WHERE order_id = ?";
+                            // SECURITY: Fetch details and verify order belongs to this teacher's items
+                            String sqlFind = "SELECT o.student_id, o.item_id, o.price, o.item_name FROM marketplace_orders o " +
+                                             "JOIN marketplace_items i ON o.item_id = i.item_id " +
+                                             "WHERE o.order_id = ? AND i.teacher_id = ?";
+                            
                             try (PreparedStatement pstF = conn.prepareStatement(sqlFind)) {
                                 pstF.setInt(1, orderId);
+                                pstF.setInt(2, teacher.getId());
                                 ResultSet rsF = pstF.executeQuery();
+                                
                                 if (rsF.next()) {
                                     int studentId = rsF.getInt("student_id");
                                     int itemId = rsF.getInt("item_id");
                                     double price = rsF.getDouble("price");
                                     String item = rsF.getString("item_name");
 
-                                    // 2. Refund Wallet
+                                    // Refund Wallet
                                     String sqlRefund = "UPDATE wallets SET balance = balance + ? WHERE student_id = ?";
                                     try (PreparedStatement pstR = conn.prepareStatement(sqlRefund)) {
                                         pstR.setDouble(1, price);
@@ -87,14 +97,14 @@ public class TeacherActionServlet extends HttpServlet {
                                         pstR.executeUpdate();
                                     }
 
-                                    // 3. RESTOCK
+                                    // Restock item
                                     String sqlRestock = "UPDATE marketplace_items SET stock = stock + 1 WHERE item_id = ? AND stock <> -1";
                                     try (PreparedStatement pstRS = conn.prepareStatement(sqlRestock)) {
                                         pstRS.setInt(1, itemId);
                                         pstRS.executeUpdate();
                                     }
 
-                                    // 4. Log Transaction
+                                    // Log Transaction
                                     String sqlLog = "INSERT INTO transactions (receiver_id, amount, type, description, school_id) VALUES (?, ?, 'REFUND', ?, ?)";
                                     try (PreparedStatement pstL = conn.prepareStatement(sqlLog)) {
                                         pstL.setInt(1, studentId);
@@ -108,8 +118,9 @@ public class TeacherActionServlet extends HttpServlet {
                         }
                     }
 
-                    // 5. Update Order Statuses
+                    // Update Order Statuses
                     String finalStatus = "APPROVED".equals(decision) ? "COMPLETED" : "REJECTED";
+                    // SECURITY: Using ANY(?) with PreparedStatement to prevent SQL injection in arrays
                     String sqlUpdate = "UPDATE marketplace_orders SET status = ? WHERE order_id = ANY(?)";
                     try (PreparedStatement pstU = conn.prepareStatement(sqlUpdate)) {
                         pstU.setString(1, finalStatus);
@@ -122,9 +133,10 @@ public class TeacherActionServlet extends HttpServlet {
                 }
             }
             response.sendRedirect("teacherDashboard?success=1");
+
         } catch (Exception e) {
-            e.printStackTrace();
-            response.sendRedirect("teacherDashboard?error=1");
+            e.printStackTrace(); // Consider using a logger for production
+            response.sendRedirect("teacherDashboard?error=system");
         }
     }
 }
