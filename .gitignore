@@ -6,3 +6,13 @@ webapp/WEB-INF/classes/
 
 # Ignore Tomcat temporary files
 webapp/META-INF/context.xml
+# Ignore compiled classes and binaries
+target/
+*.class
+
+# Ignore local database properties
+src/utils/db.properties
+
+# Ignore OS metadata
+.DS_Store
+Thumbs.db
