@@ -42,7 +42,7 @@
     <div id="home" class="tab active">
         <div class="balance-card">
             <small>WALLET BALANCE</small>
-            <h1 style="margin: 5px 0; font-size: 42px;">$${balance != null ? balance : '0.00'}</h1>
+            <h1 style="margin: 5px 0; font-size: 42px;">₹${balance != null ? balance : '0.00'}</h1>
             <p style="margin: 0; opacity: 0.8;">Welcome back, <%= fullName %>!</p>
         </div>
 
@@ -51,7 +51,7 @@
             <% List<Map<String, Object>> pr = (List<Map<String, Object>>)request.getAttribute("pendingRequests");
                if(pr != null && !pr.isEmpty()) { for(Map<String, Object> r : pr) { %>
                 <div style="background:#fffbeb; padding:15px; border-radius:12px; border:1px solid #fcd34d; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
-                    <div><strong><%= r.get("from") %></strong>: $<%= r.get("amt") %><br><small>"<%= r.get("note") %>"</small></div>
+                    <div><strong><%= r.get("from") %></strong>: ₹<%= r.get("amt") %><br><small>"<%= r.get("note") %>"</small></div>
                     <form action="studentAction" method="POST">
                         <input type="hidden" name="action" value="sendMoney">
                         <input type="hidden" name="requestId" value="<%= r.get("id") %>">
@@ -67,12 +67,22 @@
             <h3>Recent Wallet Activity</h3>
             <table>
                 <% List<Map<String, Object>> hist = (List<Map<String, Object>>)request.getAttribute("history");
-                   if(hist != null) { for(Map<String, Object> h : hist) { boolean isCredit = (boolean)h.get("isCredit"); %>
+                   if(hist != null && !hist.isEmpty()) { 
+                       for(Map<String, Object> h : hist) { 
+                           boolean isCredit = (boolean)h.get("isCredit"); 
+                %>
                     <tr>
-                        <td><%= h.get("desc") %></td>
-                        <td align="right" class="<%= isCredit ? "text-green" : "text-red" %>" style="font-weight:bold;"><%= isCredit ? "+" : "-" %>$<%= h.get("amount") %></td>
+                        <td style="padding: 12px 0;">
+                            <div style="font-weight: 500;"><%= h.get("desc") %></div>
+                            <small style="color: #94a3b8;"><%= h.get("date") %></small>
+                        </td>
+                        <td align="right" class="<%= isCredit ? "text-green" : "text-red" %>" style="font-weight:bold; font-size: 16px;">
+                            <%= isCredit ? "+" : "-" %>₹<%= h.get("amount") %>
+                        </td>
                     </tr>
-                <% } } %>
+                <% } } else { %>
+                    <tr><td colspan="2" style="text-align: center; color: #94a3b8; padding: 20px;">No recent transactions.</td></tr>
+                <% } %>
             </table>
         </div>
     </div>
@@ -83,7 +93,7 @@
             <form action="studentAction" method="POST">
                 <input type="hidden" name="action" value="sendMoney">
                 <input type="text" name="receiverUsername" placeholder="Recipient Username" required>
-                <input type="number" name="amount" placeholder="Amount ($)" step="0.01" required>
+                <input type="number" name="amount" placeholder="Amount (₹)" step="0.01" required>
                 <input type="text" name="note" placeholder="Note (Optional)">
                 <button type="submit" class="btn" style="background:#3b82f6;">Send Now</button>
             </form>
@@ -93,7 +103,7 @@
             <form action="studentAction" method="POST">
                 <input type="hidden" name="action" value="requestMoney">
                 <input type="text" name="payerUsername" placeholder="Friend's Username" required>
-                <input type="number" name="amount" placeholder="Amount ($)" step="0.01" required>
+                <input type="number" name="amount" placeholder="Amount (₹)" step="0.01" required>
                 <input type="text" name="note" placeholder="Reason for request">
                 <button type="submit" class="btn" style="background:#8b5cf6;">Send Request</button>
             </form>
@@ -116,7 +126,7 @@
                         </div>
                         <div style="margin-top:10px;">
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                                <span class="text-green" style="font-weight:bold; font-size:18px;">$<%= i.get("price") %></span>
+                                <span class="text-green" style="font-weight:bold; font-size:18px;">₹<%= i.get("price") %></span>
                                 <span id="stock-count-<%= i.get("id") %>" style="font-size:11px; color:#94a3b8;"><%= stock == -1 ? "♾️ Unlimited" : stock + " left" %></span>
                             </div>
                             <form action="studentAction" method="POST">
@@ -145,7 +155,7 @@
                            if(myOrders != null) { for(Map<String, Object> o : myOrders) { String status = (String)o.get("status"); %>
                             <tr class="audit-row">
                                 <td class="order-item"><strong><%= o.get("item_name") %></strong></td>
-                                <td>$<%= o.get("price") %></td>
+                                <td>₹<%= o.get("price") %></td>
                                 <td><small><%= o.get("date") %></small></td>
                                 <td class="order-status">
                                     <% if("PENDING_TEACHER".equals(status)) { %><span style="color: #f59e0b;">⏳ Pending</span>

@@ -125,19 +125,44 @@ public class RewardServlet extends HttpServlet {
 
         if (rsR.next() && studentIds != null) {
             double amount = rsR.getDouble("amount");
+            String rewardName = rsR.getString("name");
             conn.setAutoCommit(false);
+            
             for (String sId : studentIds) {
+                int studentId = Integer.parseInt(sId);
+                
+                // Update Student Wallet
                 PreparedStatement upW = conn.prepareStatement("UPDATE wallets SET balance = balance + ? WHERE student_id = ?");
                 upW.setDouble(1, amount);
-                upW.setInt(2, Integer.parseInt(sId));
+                upW.setInt(2, studentId);
                 upW.executeUpdate();
                 
-                PreparedStatement log = conn.prepareStatement("INSERT INTO transactions (sender_id, receiver_id, amount, type, description, school_id) VALUES (?, ?, ?, 'REWARD', ?, ?)");
-                log.setInt(1, teacher.getId());
-                log.setInt(2, Integer.parseInt(sId));
+                // PROFESSIONAL LEDGER LOGIC:
+                // If amount is positive (Award): Sender = Teacher, Receiver = Student (Type: REWARD_AWARD)
+                // If amount is negative (Deduct): Sender = Student, Receiver = Teacher (Type: REWARD_DEDUCT)
+                int finalSender, finalReceiver;
+                String finalType;
+                
+                if (amount >= 0) {
+                    finalSender = teacher.getId();
+                    finalReceiver = studentId;
+                    finalType = "REWARD_AWARD";
+                } else {
+                    finalSender = studentId;
+                    finalReceiver = teacher.getId();
+                    finalType = "REWARD_DEDUCT";
+                }
+
+                PreparedStatement log = conn.prepareStatement(
+                    "INSERT INTO transactions (sender_id, receiver_id, amount, type, description, school_id) " +
+                    "VALUES (?, ?, ?, ?, ?, ?)"
+                );
+                log.setInt(1, finalSender);
+                log.setInt(2, finalReceiver);
                 log.setDouble(3, Math.abs(amount));
-                log.setString(4, (amount >= 0 ? "Award: " : "Deduct: ") + rsR.getString("name"));
-                log.setInt(5, teacher.getSchoolId());
+                log.setString(4, finalType);
+                log.setString(5, (amount >= 0 ? "Award: " : "Deduct: ") + rewardName);
+                log.setInt(6, teacher.getSchoolId());
                 log.executeUpdate();
             }
             conn.commit();

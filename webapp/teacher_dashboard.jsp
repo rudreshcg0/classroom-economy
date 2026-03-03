@@ -29,7 +29,7 @@
         <h1>Teacher Dashboard</h1>
         <div class="balance-box">
             <small>CLASS REWARD BUDGET</small>
-            <h2 style="margin: 5px 0;">$${allowance != null ? allowance : "0.00"}</h2>
+            <h2 style="margin: 5px 0;">₹${allowance != null ? allowance : "0.00"}</h2>
         </div>
         <div class="card">
             <h3>Quick Summary</h3>
@@ -83,7 +83,7 @@
                             <div style="font-size: 24px; margin-bottom: 5px;">👤</div>
                             <div style="font-weight: bold; font-size: 13px;"><%= s.getUsername() %></div>
                             <div style="color: #64748b; font-size: 11px;">Roll: <%= s.getRollNo() %></div>
-                            <div style="color: #10b981; font-weight: bold; font-size: 12px;">$<%= s.getBalance() %></div>
+                            <div style="color: #10b981; font-weight: bold; font-size: 12px;">₹<%= s.getBalance() %></div>
                         </div>
                     <% } %>
                 </div>
@@ -153,7 +153,7 @@
                             <tr class="audit-row">
                                 <td class="search-student"><strong><%= auditItem.get("student") %></strong></td>
                                 <td class="search-item"><%= auditItem.get("item") %></td> 
-                                <td>$<%= auditItem.get("price") %></td>
+                                <td>₹<%= auditItem.get("price") %></td>
                                 <td><small><%= auditItem.get("date") %></small></td>
                                 <td><span class="badge <%= auditItem.get("status").equals("COMPLETED") ? "bg-active" : "bg-out" %>"><%= auditItem.get("status") %></span></td>
                             </tr>

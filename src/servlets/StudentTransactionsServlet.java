@@ -14,7 +14,7 @@ public class StudentTransactionsServlet extends HttpServlet {
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         HttpSession session = request.getSession();
         User teacher = (User) session.getAttribute("user");
-        if (teacher == null) { response.sendRedirect("login.html"); return; }
+        if (teacher == null) { response.sendRedirect("login.jsp"); return; }
 
         String classId = request.getParameter("classId");
         String studentId = request.getParameter("studentId");
@@ -40,13 +40,17 @@ public class StudentTransactionsServlet extends HttpServlet {
                 String sqlS = "SELECT u.user_id, u.username, u.roll_no, w.balance FROM users u " +
                               "JOIN student_classes sc ON u.user_id = sc.student_id " +
                               "JOIN wallets w ON u.user_id = w.student_id " +
-                              "WHERE sc.class_id = ?";
+                              "WHERE sc.class_id = ? ORDER BY u.roll_no ASC";
                 PreparedStatement pstS = conn.prepareStatement(sqlS);
                 pstS.setInt(1, Integer.parseInt(classId));
                 ResultSet rsS = pstS.executeQuery();
                 while(rsS.next()){
-                    students.add(new User(rsS.getInt("user_id"), rsS.getString("username"), "student", 
-                                teacher.getSchoolId(), rsS.getDouble("balance"), rsS.getString("roll_no")));
+                    User s = new User();
+                    s.setId(rsS.getInt("user_id"));
+                    s.setUsername(rsS.getString("username"));
+                    s.setRollNo(rsS.getString("roll_no"));
+                    s.setBalance(rsS.getDouble("balance"));
+                    students.add(s);
                 }
                 request.setAttribute("students", students);
                 request.setAttribute("selectedClassId", classId);
@@ -55,30 +59,41 @@ public class StudentTransactionsServlet extends HttpServlet {
             // STATE 2: Student Selected -> Fetch Transactions
             if (studentId != null) {
                 List<Map<String, Object>> txs = new ArrayList<>();
+                // Enhanced query to get human-readable names for both parties
                 String sqlT = "SELECT t.*, u1.username as sender_name, u2.username as receiver_name " +
                               "FROM transactions t " +
                               "LEFT JOIN users u1 ON t.sender_id = u1.user_id " +
                               "LEFT JOIN users u2 ON t.receiver_id = u2.user_id " +
                               "WHERE t.sender_id = ? OR t.receiver_id = ? " +
                               "ORDER BY t.created_at DESC";
+                
                 PreparedStatement pstT = conn.prepareStatement(sqlT);
                 int sId = Integer.parseInt(studentId);
                 pstT.setInt(1, sId);
                 pstT.setInt(2, sId);
                 ResultSet rsT = pstT.executeQuery();
+                
                 while(rsT.next()){
                     Map<String, Object> t = new HashMap<>();
                     t.put("amount", rsT.getDouble("amount"));
                     t.put("type", rsT.getString("type"));
                     t.put("desc", rsT.getString("description"));
                     t.put("date", rsT.getTimestamp("created_at"));
-                    t.put("sender", rsT.getString("sender_name") == null ? "SYSTEM" : rsT.getString("sender_name"));
-                    t.put("receiver", rsT.getString("receiver_name"));
+                    
+                    // Handle Sender Display
+                    String sName = rsT.getString("sender_name");
+                    t.put("sender", sName == null ? "SYSTEM" : sName);
+                    
+                    // Handle Receiver Display
+                    String rName = rsT.getString("receiver_name");
+                    t.put("receiver", rName == null ? "SYSTEM" : rName);
+                    
                     txs.add(t);
                 }
                 request.setAttribute("transactions", txs);
+                request.setAttribute("selectedClassId", classId);
                 
-                // Fetch student name for the header
+                // Fetch target student name for the header breadcrumb
                 PreparedStatement pstN = conn.prepareStatement("SELECT username FROM users WHERE user_id = ?");
                 pstN.setInt(1, sId);
                 ResultSet rsN = pstN.executeQuery();
@@ -86,6 +101,9 @@ public class StudentTransactionsServlet extends HttpServlet {
             }
 
             request.getRequestDispatcher("student_transactions.jsp").forward(request, response);
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (SQLException e) { 
+            e.printStackTrace(); 
+            response.sendRedirect("teacherDashboard?error=db");
+        }
     }
 }

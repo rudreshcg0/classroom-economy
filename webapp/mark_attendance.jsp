@@ -15,7 +15,7 @@
             <h1 style="margin: 10px 0;">Marking: <%= cd.get("name") %></h1>
         </div>
         <div style="text-align: right;">
-            <p style="margin: 0; color: #2d3748;">Pay Rate: <strong>$<%= cd.get("pay") %></strong></p>
+            <p style="margin: 0; color: #2d3748;">Pay Rate: <strong>₹<%= cd.get("pay") %></strong></p>
         </div>
     </div>
 
@@ -51,7 +51,7 @@
                     </td>
                     <td><%= s.getRollNo() %></td>
                     <td><strong><%= s.getUsername() %></strong></td>
-                    <td>$<%= s.getBalance() %></td>
+                    <td>₹<%= s.getBalance() %></td>
                 </tr>
                 <% 
                         }
