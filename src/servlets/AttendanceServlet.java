@@ -13,12 +13,13 @@ import models.User;
 public class AttendanceServlet extends HttpServlet {
 
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-        HttpSession session = request.getSession();
-        User teacher = (User) session.getAttribute("user");
+        HttpSession session = request.getSession(false);
+        User teacher = (session != null) ? (User) session.getAttribute("user") : null;
         String classIdStr = request.getParameter("classId");
 
-        if (teacher == null || classIdStr == null) {
-            response.sendRedirect("teacherDashboard");
+        // SECURITY: Strict Session & Role Validation
+        if (teacher == null || !"teacher".equalsIgnoreCase(teacher.getRole()) || classIdStr == null) {
+            response.sendRedirect("teacherDashboard?error=unauthorized");
             return;
         }
 
@@ -26,25 +27,32 @@ public class AttendanceServlet extends HttpServlet {
         Map<String, Object> classDetails = new HashMap<>();
 
         try (Connection conn = DBConnection.getConnection()) {
-            String sqlClass = "SELECT class_id, class_name, pay_per_session FROM classes WHERE class_id = ? AND teacher_id = ?";
+            // SECURITY: Verify the teacher actually owns this class to prevent ID-guessing attacks
+            String sqlClass = "SELECT class_id, class_name, pay_per_session FROM classes WHERE class_id = ? AND teacher_id = ? AND school_id = ?";
             try (PreparedStatement pst1 = conn.prepareStatement(sqlClass)) {
                 pst1.setInt(1, Integer.parseInt(classIdStr));
                 pst1.setInt(2, teacher.getId());
+                pst1.setInt(3, teacher.getSchoolId());
                 ResultSet rs1 = pst1.executeQuery();
                 if (rs1.next()) {
                     classDetails.put("id", rs1.getInt("class_id"));
                     classDetails.put("name", rs1.getString("class_name"));
                     classDetails.put("pay", rs1.getDouble("pay_per_session"));
+                } else {
+                    response.sendRedirect("teacherDashboard?error=class_not_found");
+                    return;
                 }
             }
 
+            // SECURITY: Ensure students being fetched belong to the same school
             String sqlStudents = "SELECT u.user_id, u.username, u.roll_no, w.balance " +
                                  "FROM users u " +
                                  "JOIN student_classes sc ON u.user_id = sc.student_id " +
                                  "JOIN wallets w ON u.user_id = w.student_id " +
-                                 "WHERE sc.class_id = ? ORDER BY u.roll_no ASC";
+                                 "WHERE sc.class_id = ? AND u.school_id = ? ORDER BY u.roll_no ASC";
             try (PreparedStatement pst2 = conn.prepareStatement(sqlStudents)) {
                 pst2.setInt(1, Integer.parseInt(classIdStr));
+                pst2.setInt(2, teacher.getSchoolId());
                 ResultSet rs2 = pst2.executeQuery();
                 while (rs2.next()) {
                     linkedStudents.add(new User(
@@ -64,13 +72,21 @@ public class AttendanceServlet extends HttpServlet {
 
         } catch (SQLException e) {
             e.printStackTrace();
+            response.sendRedirect("teacherDashboard?error=system");
         }
     }
 
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        HttpSession session = request.getSession(false);
+        User teacher = (session != null) ? (User) session.getAttribute("user") : null;
         String[] studentIds = request.getParameterValues("presentStudents");
         String classIdStr = request.getParameter("classId");
-        String schoolIdStr = request.getParameter("schoolId");
+
+        // SECURITY: Validate session and teacher role
+        if (teacher == null || !"teacher".equalsIgnoreCase(teacher.getRole())) {
+            response.sendRedirect("login.jsp?error=unauthorized");
+            return;
+        }
 
         if (classIdStr == null || studentIds == null) {
             response.sendRedirect("teacherDashboard?error=no_selection");
@@ -78,16 +94,26 @@ public class AttendanceServlet extends HttpServlet {
         }
 
         int classId = Integer.parseInt(classIdStr);
-        int schoolId = Integer.parseInt(schoolIdStr);
+        int schoolId = teacher.getSchoolId(); // SECURITY: Trust the session, not the form parameter
         int processedCount = 0;
 
         try (Connection conn = DBConnection.getConnection()) {
             conn.setAutoCommit(false);
 
-            // SQL to check if student already marked today
+            // SECURITY: Verify class ownership again during POST
+            String verifyClass = "SELECT 1 FROM classes WHERE class_id = ? AND teacher_id = ? AND school_id = ?";
+            try (PreparedStatement pstV = conn.prepareStatement(verifyClass)) {
+                pstV.setInt(1, classId);
+                pstV.setInt(2, teacher.getId());
+                pstV.setInt(3, schoolId);
+                if (!pstV.executeQuery().next()) {
+                    response.sendRedirect("teacherDashboard?error=unauthorized_class");
+                    return;
+                }
+            }
+
             String checkSql = "SELECT 1 FROM attendance WHERE student_id = ? AND class_id = ? AND attendance_date = CURRENT_DATE";
-            
-            String updateWallet = "UPDATE wallets SET balance = balance + (SELECT pay_per_session FROM classes WHERE class_id = ?) WHERE student_id = ?";
+            String updateWallet = "UPDATE wallets SET balance = balance + (SELECT pay_per_session FROM classes WHERE class_id = ?) WHERE student_id = ? AND school_id = ?";
             String markAttend = "INSERT INTO attendance (student_id, class_id, is_present, processed_payment, attendance_date) VALUES (?, ?, TRUE, TRUE, CURRENT_DATE)";
             String logTrans = "INSERT INTO transactions (sender_id, receiver_id, amount, type, description, school_id) " +
                               "VALUES (NULL, ?, (SELECT pay_per_session FROM classes WHERE class_id = ?), 'ATTENDANCE_PAY', 'System Attendance Reward', ?)";
@@ -100,27 +126,22 @@ public class AttendanceServlet extends HttpServlet {
                 for (String sId : studentIds) {
                     int studentId = Integer.parseInt(sId);
 
-                    // --- STEP 1: CHECK IF ALREADY MARKED ---
                     pstCheck.setInt(1, studentId);
                     pstCheck.setInt(2, classId);
                     try (ResultSet rs = pstCheck.executeQuery()) {
-                        if (rs.next()) {
-                            continue; // Skip this student, they were already marked today
-                        }
+                        if (rs.next()) continue; 
                     }
 
-                    // --- STEP 2: PROCESS PAYMENT ---
-                    // Wallet update
+                    // Process Wallet update with school isolation
                     pstWallet.setInt(1, classId);
                     pstWallet.setInt(2, studentId);
+                    pstWallet.setInt(3, schoolId);
                     pstWallet.executeUpdate();
 
-                    // Attendance Record
                     pstAttend.setInt(1, studentId);
                     pstAttend.setInt(2, classId);
                     pstAttend.executeUpdate();
 
-                    // Transaction Log
                     pstLog.setInt(1, studentId);
                     pstLog.setInt(2, classId);
                     pstLog.setInt(3, schoolId);
@@ -130,14 +151,7 @@ public class AttendanceServlet extends HttpServlet {
                 }
 
                 conn.commit();
-                
-                if (processedCount == 0 && studentIds.length > 0) {
-                    // All selected students were already marked
-                    response.sendRedirect("teacherDashboard?error=already_paid_today");
-                } else {
-                    // Success (some or all students were processed)
-                    response.sendRedirect("teacherDashboard?success=1");
-                }
+                response.sendRedirect("teacherDashboard?success=" + (processedCount > 0 ? "1" : "already_paid"));
 
             } catch (SQLException e) {
                 conn.rollback();
