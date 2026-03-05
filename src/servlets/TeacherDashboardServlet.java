@@ -17,21 +17,43 @@ public class TeacherDashboardServlet extends HttpServlet {
         User teacher = (User) session.getAttribute("user");
 
         if (teacher == null || !teacher.getRole().equalsIgnoreCase("teacher")) {
-            response.sendRedirect("login.html");
+            response.sendRedirect("login.jsp");
             return;
         }
 
         try (Connection conn = DBConnection.getConnection()) {
-            // 1. Get Teacher's Reward Budget Balance
-            double currentAllowance = 0.0;
-            String sqlAllowance = "SELECT current_balance FROM teacher_allowance WHERE teacher_id = ?";
-            try (PreparedStatement pst1 = conn.prepareStatement(sqlAllowance)) {
+            
+            // 1. Calculate Remaining Daily Soft Limit
+            double dailyLimit = 0.0;
+            double tempExtension = 0.0;
+            double spentToday = 0.0;
+
+            // Get assigned limits from the database
+            String sqlLimits = "SELECT daily_limit, temp_extension FROM teacher_allowance WHERE teacher_id = ?";
+            try (PreparedStatement pst1 = conn.prepareStatement(sqlLimits)) {
                 pst1.setInt(1, teacher.getId());
                 ResultSet rs1 = pst1.executeQuery();
-                if (rs1.next()) currentAllowance = rs1.getDouble("current_balance");
+                if (rs1.next()) {
+                    dailyLimit = rs1.getDouble("daily_limit");
+                    tempExtension = rs1.getDouble("temp_extension");
+                }
             }
 
-            // 2. Get Classes Assigned to this Teacher (for Attendance tab)
+            // Calculate how much the teacher has rewarded today
+            String sqlSpent = "SELECT SUM(amount) as total FROM transactions " +
+                             "WHERE sender_id = ? AND type = 'REWARD_AWARD' " +
+                             "AND created_at >= CURRENT_DATE";
+            try (PreparedStatement pstSpent = conn.prepareStatement(sqlSpent)) {
+                pstSpent.setInt(1, teacher.getId());
+                ResultSet rsSpent = pstSpent.executeQuery();
+                if (rsSpent.next()) {
+                    spentToday = rsSpent.getDouble("total");
+                }
+            }
+
+            double remainingLimit = (dailyLimit + tempExtension) - spentToday;
+
+            // 2. Get Classes Assigned to this Teacher
             List<Map<String, Object>> classesList = new ArrayList<>();
             String sqlClasses = "SELECT class_id, class_name, pay_per_session FROM classes WHERE teacher_id = ?";
             try (PreparedStatement pstClasses = conn.prepareStatement(sqlClasses)) {
@@ -63,7 +85,7 @@ public class TeacherDashboardServlet extends HttpServlet {
                 }
             }
 
-            // 4. Fetch Pending Fulfillment Orders (Marketplace Management Tab)
+            // 4. Fetch Pending Fulfillment Orders
             List<Map<String, Object>> pendingOrders = new ArrayList<>();
             String sqlO = "SELECT o.order_id, o.item_name, o.purchased_at, u.username FROM marketplace_orders o " +
                           "JOIN users u ON o.student_id = u.user_id " +
@@ -81,7 +103,7 @@ public class TeacherDashboardServlet extends HttpServlet {
                 }
             }
 
-            // 5. Fetch Full School Audit History (COMPLETED or REJECTED statuses)
+            // 5. Fetch Full School Audit History
             List<Map<String, Object>> fullAudit = new ArrayList<>();
             String sqlAudit = "SELECT o.*, u.username FROM marketplace_orders o " +
                               "JOIN users u ON o.student_id = u.user_id " +
@@ -101,7 +123,7 @@ public class TeacherDashboardServlet extends HttpServlet {
                 }
             }
 
-            // 6. Fetch Teacher-specific Reward Blocks for the management modal
+            // 6. Fetch Teacher-specific Reward Blocks
             List<Map<String, Object>> teacherRewards = new ArrayList<>();
             String sqlRewards = "SELECT * FROM reward_types WHERE teacher_id = ? OR teacher_id IS NULL ORDER BY name ASC";
             try (PreparedStatement pstRewards = conn.prepareStatement(sqlRewards)) {
@@ -117,8 +139,11 @@ public class TeacherDashboardServlet extends HttpServlet {
                 }
             }
 
-            // Set all data for JSP handling
-            request.setAttribute("allowance", currentAllowance);
+            // Set new data for JSP
+            request.setAttribute("dailyLimit", dailyLimit);
+            request.setAttribute("tempExtension", tempExtension);
+            request.setAttribute("remainingLimit", remainingLimit);
+            
             request.setAttribute("classes", classesList);
             request.setAttribute("myItems", myItems);
             request.setAttribute("marketplaceOrders", pendingOrders);
@@ -129,7 +154,7 @@ public class TeacherDashboardServlet extends HttpServlet {
 
         } catch (SQLException e) {
             e.printStackTrace();
-            response.sendError(500, "Internal Server Error during Teacher Dashboard data retrieval.");
+            response.sendError(500, "Database error.");
         }
     }
 }

@@ -1,10 +1,25 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ page import="java.util.*, models.User" %>
+<%
+    User userObj = (User) session.getAttribute("user");
+    if (userObj == null) {
+        response.sendRedirect("login.jsp");
+        return;
+    }
+%>
 <!DOCTYPE html>
 <html>
 <head>
     <title>Teacher Hub - VCES Admin</title>
     <link rel="stylesheet" href="${pageContext.request.contextPath}/css/teacher_dashboard.css">
+    <style>
+        .limit-box { background: #f8fafc; border-left: 4px solid #6366f1; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+        .limit-info h2 { margin: 0; font-size: 28px; color: #1e293b; }
+        .limit-info small { color: #64748b; font-weight: bold; text-transform: uppercase; }
+        .btn-request { background: #6366f1; color: white; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        .btn-request:hover { background: #4f46e5; }
+        .alert-error { background: #fee2e2; color: #991b1b; padding: 12px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #fecaca; }
+    </style>
 </head>
 <body>
 
@@ -16,10 +31,8 @@
         <button onclick="showTab('overview', this)" class="sidebar-link active">🏠 Dashboard Overview</button>
         <button onclick="showTab('attendance', this)" class="sidebar-link">📝 Mark Attendance</button>
         <button onclick="showTab('marketplace', this)" class="sidebar-link">🏪 Marketplace Manager</button>
-        
         <a href="manageStudents" class="sidebar-link">👥 Student Registry</a>
         <a href="studentTransactions" class="sidebar-link">💰 Financial Ledger</a>
-        
         <a href="login.jsp" class="sidebar-link logout">🚪 Logout</a>
     </nav>
 </div>
@@ -27,10 +40,19 @@
 <div class="main-content">
     <div id="overview" class="tab-panel active">
         <h1>Teacher Dashboard</h1>
-        <div class="balance-box">
-            <small>CLASS REWARD BUDGET</small>
-            <h2 style="margin: 5px 0;">₹${allowance != null ? allowance : "0.00"}</h2>
+
+        <% if(request.getParameter("error") != null && request.getParameter("error").equals("limit_exceeded")) { %>
+            <div class="alert-error">⚠️ Daily Limit Exceeded. Please request an extension to award more money.</div>
+        <% } %>
+
+        <div class="limit-box">
+            <div class="limit-info">
+                <small>Remaining Daily Soft Limit</small>
+                <h2>₹${remainingLimit != null ? String.format("%.2f", remainingLimit) : "0.00"}</h2>
+            </div>
+            <button class="btn-request" onclick="document.getElementById('extensionModal').style.display='flex'">➕ Request Extension</button>
         </div>
+
         <div class="card">
             <h3>Quick Summary</h3>
             <p>You have <strong>${marketplaceOrders != null ? marketplaceOrders.size() : 0}</strong> pending purchase requests.</p>
@@ -105,10 +127,8 @@
                     %>
                         <option value="<%= c.get("id") %>"><%= c.get("name") %></option>
                     <%      } 
-                        } else { 
+                        } 
                     %>
-                        <option value="" disabled>No classes assigned to you</option>
-                    <% } %>
                 </select>
                 <button type="submit" id="launchAttendanceBtn" class="btn-submit" style="width: 100%;" disabled>Launch Attendance Console</button>
             </form>
@@ -116,64 +136,47 @@
     </div>
 
     <div id="marketplace" class="tab-panel">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-            <h1>Marketplace Manager</h1>
-            <button class="toggle-btn" id="teacherAuditBtn" onclick="toggleTeacherAudit()">📜 View Transaction History</button>
+        <h1>Marketplace Manager</h1>
+        <div class="card">
+            <h3>🚀 Create New Item</h3>
+            <form action="teacherAction" method="POST" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <input type="hidden" name="action" value="createItem">
+                <input type="text" name="itemName" placeholder="Item Name" required>
+                <input type="number" name="price" placeholder="Price" step="0.01" required>
+                <input type="number" name="stock" placeholder="Stock (-1 for ∞)" required>
+                <input type="text" name="description" placeholder="Short Description">
+                <button type="submit" class="btn-submit" style="grid-column: span 2; background: #3182ce;">Add to Store</button>
+            </form>
         </div>
-        
-        <div id="teacherMarketManagement">
-            <div class="card">
-                <h3>🚀 Create New Item</h3>
-                <form action="teacherAction" method="POST" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                    <input type="hidden" name="action" value="createItem">
-                    <input type="text" name="itemName" placeholder="Item Name" required>
-                    <input type="number" name="price" placeholder="Price" step="0.01" required>
-                    <input type="number" name="stock" placeholder="Stock (-1 for ∞)" required>
-                    <input type="text" name="description" placeholder="Short Description">
-                    <button type="submit" class="btn-submit" style="grid-column: span 2; background: #3182ce;">Add to Store</button>
-                </form>
-            </div>
-            </div>
+    </div>
+</div>
 
-        <div id="teacherMarketAudit" style="display: none;">
-            <div class="card">
-                <h3>📜 Transaction Ledger</h3>
-                <table>
-                    <thead>
-                        <tr style="background: #f7fafc;">
-                            <th>Student</th><th>Item</th><th>Price</th><th>Date</th><th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody id="auditTableBody">
-                        <% 
-                            List<Map<String, Object>> fullAudit = (List<Map<String, Object>>)request.getAttribute("fullAudit");
-                            if(fullAudit != null) { 
-                                for(Map<String, Object> auditItem : fullAudit) { 
-                        %>
-                            <tr class="audit-row">
-                                <td class="search-student"><strong><%= auditItem.get("student") %></strong></td>
-                                <td class="search-item"><%= auditItem.get("item") %></td> 
-                                <td>₹<%= auditItem.get("price") %></td>
-                                <td><small><%= auditItem.get("date") %></small></td>
-                                <td><span class="badge <%= auditItem.get("status").equals("COMPLETED") ? "bg-active" : "bg-out" %>"><%= auditItem.get("status") %></span></td>
-                            </tr>
-                        <%     } 
-                           } 
-                        %>
-                    </tbody>
-                </table>
-            </div>
+<div id="extensionModal" class="modal-overlay" style="display:none;">
+    <div class="card" style="width: 400px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h3>Request Limit Extension</h3>
+            <button onclick="document.getElementById('extensionModal').style.display='none'" class="btn-close">✕</button>
         </div>
+        <form action="rewardAction" method="POST">
+            <input type="hidden" name="action" value="requestLimitIncrease">
+            <label style="font-weight: bold; font-size: 13px; color: #64748b;">ADDITIONAL AMOUNT NEEDED (₹)</label>
+            <input type="number" name="amount" placeholder="e.g. 50.00" step="0.01" required style="margin-bottom: 15px;">
+            
+            <label style="font-weight: bold; font-size: 13px; color: #64748b;">REASON FOR EXTENSION</label>
+            <textarea name="reason" placeholder="Explain why you need extra funds for today..." required style="width: 100%; height: 80px; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; margin-bottom: 15px;"></textarea>
+            
+            <button type="submit" class="btn-submit" style="width:100%; background:#6366f1;">Send Request to Admin</button>
+        </form>
     </div>
 </div>
 
 <div id="rewardGridModal" class="modal-overlay" style="display:none;">
     <div class="card" style="width: 90%; max-width: 600px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
-            <h2 style="margin:0;">Select Block</h2>
+            <h2 id="gridModalTitle" style="margin:0;">Select Block</h2>
             <button onclick="document.getElementById('rewardGridModal').style.display='none'" class="btn-close">✕</button>
         </div>
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
+        <div id="rewardGridContainer" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
             </div>
     </div>
 </div>
@@ -190,13 +193,11 @@
                 if (tRewards != null && !tRewards.isEmpty()) {
                     for (Map<String, Object> r : tRewards) {
             %>
-            <div class="reward-item" id="reward-item-<%= r.get("id") %>" style="display:flex; justify-content:space-between; align-items:center; padding:10px; border:1px solid #f1f5f9; border-radius:8px; margin-bottom:8px;">
+            <div class="reward-item" style="display:flex; justify-content:space-between; align-items:center; padding:10px; border:1px solid #f1f5f9; border-radius:8px; margin-bottom:8px;">
                 <span><strong><%= r.get("name") %></strong> (<%= r.get("amount") %>)</span>
                 <button class="btn-delete" style="background:#ef4444; color:white; border:none; padding:5px 10px; border-radius:6px; cursor:pointer;" onclick="deleteRewardType(<%= r.get("id") %>)">Delete</button>
             </div>
-            <% } } else { %>
-                <p style="text-align: center; color: #94a3b8;">No custom blocks created yet.</p>
-            <% } %>
+            <% } } %>
         </div>
         <form id="addRewardForm" onsubmit="addRewardType(event)">
             <input type="text" id="newRewardName" placeholder="Block Name" required>

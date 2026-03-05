@@ -15,9 +15,8 @@ public class AdminActionServlet extends HttpServlet {
         User admin = (User) session.getAttribute("user");
         String action = request.getParameter("action");
 
-        // Basic Security Check
         if (admin == null || admin.getSchoolId() == null) {
-            response.sendRedirect("login.jsp"); // Updated to .jsp
+            response.sendRedirect("login.jsp");
             return;
         }
 
@@ -25,10 +24,7 @@ public class AdminActionServlet extends HttpServlet {
             if ("addTeacher".equals(action)) {
                 String user = request.getParameter("username");
                 String pass = request.getParameter("password");
-                
-                // UPDATED SQL: Explicitly set must_change_password to TRUE for new teachers
                 String sql = "INSERT INTO users (username, password, role, school_id, must_change_password) VALUES (?, ?, 'teacher', ?, TRUE)";
-                
                 try (PreparedStatement pst = conn.prepareStatement(sql)) {
                     pst.setString(1, user);
                     pst.setString(2, pass);
@@ -36,7 +32,6 @@ public class AdminActionServlet extends HttpServlet {
                     pst.executeUpdate();
                 }
             } 
-            // ... (rest of the existing logic for addClass, assignTeacher, deleteUser, etc.)
             else if ("addClass".equals(action)) {
                 String className = request.getParameter("className");
                 double pay = Double.parseDouble(request.getParameter("payRate"));
@@ -51,13 +46,9 @@ public class AdminActionServlet extends HttpServlet {
             else if ("assignTeacher".equals(action)) {
                 int classId = Integer.parseInt(request.getParameter("classId"));
                 int teacherId = Integer.parseInt(request.getParameter("teacherId"));
-                
-                String sql;
-                if (teacherId == 0) {
-                    sql = "UPDATE classes SET teacher_id = NULL WHERE class_id = ? AND school_id = ?";
-                } else {
-                    sql = "UPDATE classes SET teacher_id = ? WHERE class_id = ? AND school_id = ?";
-                }
+                String sql = (teacherId == 0) ? 
+                    "UPDATE classes SET teacher_id = NULL WHERE class_id = ? AND school_id = ?" :
+                    "UPDATE classes SET teacher_id = ? WHERE class_id = ? AND school_id = ?";
                 
                 try (PreparedStatement pst = conn.prepareStatement(sql)) {
                     if (teacherId == 0) {
@@ -73,34 +64,65 @@ public class AdminActionServlet extends HttpServlet {
             } 
             else if ("deleteUser".equals(action)) {
                 String[] ids = request.getParameterValues("id"); 
-                if (ids != null && ids.length > 0) {
+                if (ids != null) {
                     String sql = "DELETE FROM users WHERE user_id = ? AND school_id = ? AND role != 'school_admin'";
                     try (PreparedStatement pst = conn.prepareStatement(sql)) {
                         for (String idStr : ids) {
-                            try {
-                                pst.setInt(1, Integer.parseInt(idStr));
-                                pst.setInt(2, admin.getSchoolId());
-                                pst.addBatch();
-                            } catch (NumberFormatException e) {
-                                continue; 
-                            }
+                            pst.setInt(1, Integer.parseInt(idStr));
+                            pst.setInt(2, admin.getSchoolId());
+                            pst.addBatch();
                         }
                         pst.executeBatch();
                     }
                 }
             } 
-            else if ("deleteClass".equals(action)) {
-                int classId = Integer.parseInt(request.getParameter("id"));
-                String sql = "DELETE FROM classes WHERE class_id = ? AND school_id = ?";
+            else if ("setDailyLimit".equals(action)) {
+                int teacherId = Integer.parseInt(request.getParameter("teacherId"));
+                double limit = Double.parseDouble(request.getParameter("dailyLimit"));
+                // UPSERT Logic: Insert or Update the limit
+                String sql = "INSERT INTO teacher_allowance (teacher_id, daily_limit, temp_extension, school_id) " +
+                             "VALUES (?, ?, 0, ?) ON CONFLICT (teacher_id) " +
+                             "DO UPDATE SET daily_limit = EXCLUDED.daily_limit";
                 try (PreparedStatement pst = conn.prepareStatement(sql)) {
-                    pst.setInt(1, classId);
-                    pst.setInt(2, admin.getSchoolId());
+                    pst.setInt(1, teacherId);
+                    pst.setDouble(2, limit);
+                    pst.setInt(3, admin.getSchoolId());
                     pst.executeUpdate();
                 }
             }
-            
+            else if ("handleLimitRequest".equals(action)) {
+                int requestId = Integer.parseInt(request.getParameter("requestId"));
+                String status = request.getParameter("status"); 
+                
+                conn.setAutoCommit(false);
+                try {
+                    // Update request status and get details
+                    String sqlUpdate = "UPDATE limit_requests SET status = ? WHERE request_id = ? RETURNING teacher_id, requested_amount";
+                    try (PreparedStatement pst = conn.prepareStatement(sqlUpdate)) {
+                        pst.setString(1, status);
+                        pst.setInt(2, requestId);
+                        ResultSet rs = pst.executeQuery();
+                        
+                        if ("APPROVED".equals(status) && rs.next()) {
+                            int tId = rs.getInt("teacher_id");
+                            double amount = rs.getDouble("requested_amount");
+                            // Add extension to the teacher's current capacity
+                            String sqlExt = "UPDATE teacher_allowance SET temp_extension = temp_extension + ? WHERE teacher_id = ?";
+                            try (PreparedStatement pstExt = conn.prepareStatement(sqlExt)) {
+                                pstExt.setDouble(1, amount);
+                                pstExt.setInt(2, tId);
+                                pstExt.executeUpdate();
+                            }
+                        }
+                    }
+                    conn.commit();
+                } catch (Exception e) { conn.rollback(); throw e; }
+            }
+
+            // DYNAMIC REDIRECT: Handles Finance view or Management tabs
             String redirectView = request.getParameter("view") != null ? request.getParameter("view") : "management";
-            response.sendRedirect("adminDashboard?view=" + redirectView + "&success=1");
+            String activeTab = request.getParameter("activeTab") != null ? "&activeTab=" + request.getParameter("activeTab") : "";
+            response.sendRedirect("adminDashboard?view=" + redirectView + activeTab + "&success=1");
             
         } catch (SQLException e) {
             e.printStackTrace();
