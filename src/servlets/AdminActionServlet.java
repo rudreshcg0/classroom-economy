@@ -79,10 +79,12 @@ public class AdminActionServlet extends HttpServlet {
             else if ("setDailyLimit".equals(action)) {
                 int teacherId = Integer.parseInt(request.getParameter("teacherId"));
                 double limit = Double.parseDouble(request.getParameter("dailyLimit"));
-                // UPSERT Logic: Insert or Update the limit
-                String sql = "INSERT INTO teacher_allowance (teacher_id, daily_limit, temp_extension, school_id) " +
-                             "VALUES (?, ?, 0, ?) ON CONFLICT (teacher_id) " +
+                
+                // UPDATED UPSERT: Now includes last_reset_date initialization
+                String sql = "INSERT INTO teacher_allowance (teacher_id, daily_limit, temp_extension, school_id, last_reset_date) " +
+                             "VALUES (?, ?, 0, ?, CURRENT_DATE) ON CONFLICT (teacher_id) " +
                              "DO UPDATE SET daily_limit = EXCLUDED.daily_limit";
+                
                 try (PreparedStatement pst = conn.prepareStatement(sql)) {
                     pst.setInt(1, teacherId);
                     pst.setDouble(2, limit);

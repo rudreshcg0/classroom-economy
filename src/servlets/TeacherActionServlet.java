@@ -47,7 +47,11 @@ public class TeacherActionServlet extends HttpServlet {
             
             // --- Existing Marketplace Logic ---
             else if ("createItem".equals(action)) {
-                String sql = "INSERT INTO marketplace_items (teacher_id, school_id, item_name, price, stock, item_description) VALUES (?, ?, ?, ?, ?, ?)";
+                // NEW: Capture the checkbox value (Defaults to true if not checked)
+                boolean requiresApproval = request.getParameter("requiresApproval") != null;
+
+                // UPDATED SQL: Added requires_approval column
+                String sql = "INSERT INTO marketplace_items (teacher_id, school_id, item_name, price, stock, item_description, requires_approval) VALUES (?, ?, ?, ?, ?, ?, ?)";
                 try (PreparedStatement pst = conn.prepareStatement(sql)) {
                     pst.setInt(1, teacher.getId());
                     pst.setInt(2, teacher.getSchoolId());
@@ -55,6 +59,7 @@ public class TeacherActionServlet extends HttpServlet {
                     pst.setDouble(4, Double.parseDouble(request.getParameter("price")));
                     pst.setInt(5, Integer.parseInt(request.getParameter("stock")));
                     pst.setString(6, request.getParameter("description"));
+                    pst.setBoolean(7, requiresApproval); // Set the new boolean value
                     pst.executeUpdate();
                 }
                 conn.commit();

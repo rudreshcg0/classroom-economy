@@ -135,19 +135,74 @@
         </div>
     </div>
 
-    <div id="marketplace" class="tab-panel">
-        <h1>Marketplace Manager</h1>
-        <div class="card">
-            <h3>🚀 Create New Item</h3>
-            <form action="teacherAction" method="POST" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                <input type="hidden" name="action" value="createItem">
-                <input type="text" name="itemName" placeholder="Item Name" required>
-                <input type="number" name="price" placeholder="Price" step="0.01" required>
-                <input type="number" name="stock" placeholder="Stock (-1 for ∞)" required>
-                <input type="text" name="description" placeholder="Short Description">
-                <button type="submit" class="btn-submit" style="grid-column: span 2; background: #3182ce;">Add to Store</button>
-            </form>
-        </div>
+   <div id="marketplace" class="tab-panel">
+    <h1>Marketplace Manager</h1>
+    
+    <div class="card">
+        <h3>🚀 Create New Item</h3>
+        <form action="teacherAction" method="POST" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <input type="hidden" name="action" value="createItem">
+            <input type="text" name="itemName" placeholder="Item Name" required>
+            <input type="number" name="price" placeholder="Price" step="0.01" required>
+            <input type="number" name="stock" placeholder="Stock (-1 for ∞)" required>
+            <input type="text" name="description" placeholder="Short Description">
+            
+            <div style="grid-column: span 2; display: flex; align-items: center; gap: 10px; background: #f1f5f9; padding: 10px; border-radius: 8px;">
+                <input type="checkbox" name="requiresApproval" id="requiresApproval" checked style="width: auto; margin: 0;">
+                <label for="requiresApproval" style="font-size: 14px; color: #475569; font-weight: 600; cursor: pointer;">
+                    Requires Manual Teacher Approval to Buy
+                </label>
+            </div>
+
+            <button type="submit" class="btn-submit" style="grid-column: span 2; background: #3182ce;">Add to Store</button>
+        </form>
+    </div>
+
+    <div class="card" style="border-top: 4px solid #f59e0b;">
+        <h3>📦 Pending Fulfillment Requests</h3>
+        <form action="teacherAction" method="POST">
+            <input type="hidden" name="action" value="bulkProcess">
+            <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+                <thead>
+                    <tr style="text-align: left; border-bottom: 2px solid #e2e8f0;">
+                        <th style="padding: 10px;">Select</th>
+                        <th>Student</th>
+                        <th>Item</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% 
+                        List<Map<String, Object>> orders = (List<Map<String, Object>>) request.getAttribute("marketplaceOrders");
+                        if (orders != null && !orders.isEmpty()) {
+                            for (Map<String, Object> o : orders) { 
+                    %>
+                        <tr style="border-bottom: 1px solid #f1f5f9;">
+                            <td style="padding: 10px;">
+                                <input type="checkbox" name="selectedOrders" value="<%= o.get("id") %>">
+                            </td>
+                            <td><strong><%= o.get("student") %></strong></td>
+                            <td><%= o.get("item") %></td>
+                            <td><small><%= o.get("date") %></small></td>
+                        </tr>
+                    <% 
+                            } 
+                        } else { 
+                    %>
+                        <tr>
+                            <td colspan="4" style="text-align: center; padding: 20px; color: #94a3b8;">No pending orders to fulfill.</td>
+                        </tr>
+                    <% } %>
+                </tbody>
+            </table>
+
+            <% if (orders != null && !orders.isEmpty()) { %>
+                <div style="margin-top: 20px; display: flex; gap: 10px;">
+                    <button type="submit" name="decision" value="REJECTED" class="btn-submit" style="background: #ef4444; width: auto;">Reject & Refund Selected</button>
+                    <button type="submit" name="decision" value="APPROVED" class="btn-submit" style="background: #10b981; width: auto;">Approve & Mark Completed</button>
+                </div>
+            <% } %>
+        </form>
     </div>
 </div>
 
