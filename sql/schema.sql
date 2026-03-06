@@ -120,3 +120,13 @@ CREATE TABLE reward_types (
     icon VARCHAR(20) DEFAULT '⭐',
     is_positive BOOLEAN DEFAULT TRUE
 );
+
+CREATE TABLE limit_requests (
+    request_id SERIAL PRIMARY KEY,
+    teacher_id INT REFERENCES users(user_id),
+    requested_amount DECIMAL(10,2) NOT NULL,
+    reason TEXT,
+    status VARCHAR(20) DEFAULT 'PENDING',
+    school_id INT REFERENCES schools(school_id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

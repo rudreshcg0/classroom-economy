@@ -96,12 +96,13 @@ public class TeacherDashboardServlet extends HttpServlet {
 
             // 4. Fetch Pending Fulfillment Orders
             List<Map<String, Object>> pendingOrders = new ArrayList<>();
-            // CRITICAL FIX: Only fetch orders that are 'PENDING_TEACHER'
+            // CRITICAL FIX: Only fetch orders that are 'PENDING_TEACHER' for items created by this teacher
             String sqlO = "SELECT o.order_id, o.item_name, o.purchased_at, u.username FROM marketplace_orders o " +
                           "JOIN users u ON o.student_id = u.user_id " +
-                          "WHERE o.status = 'PENDING_TEACHER' AND u.school_id = ?";
+                          "JOIN marketplace_items i ON o.item_id = i.item_id " +
+                          "WHERE o.status = 'PENDING_TEACHER' AND i.teacher_id = ?";
             try (PreparedStatement pstO = conn.prepareStatement(sqlO)) {
-                pstO.setInt(1, teacher.getSchoolId());
+                pstO.setInt(1, teacher.getId());
                 ResultSet rsO = pstO.executeQuery();
                 while(rsO.next()) {
                     Map<String, Object> map = new HashMap<>();

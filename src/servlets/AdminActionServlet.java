@@ -108,11 +108,14 @@ public class AdminActionServlet extends HttpServlet {
                         if ("APPROVED".equals(status) && rs.next()) {
                             int tId = rs.getInt("teacher_id");
                             double amount = rs.getDouble("requested_amount");
-                            // Add extension to the teacher's current capacity
-                            String sqlExt = "UPDATE teacher_allowance SET temp_extension = temp_extension + ? WHERE teacher_id = ?";
+                            // Add extension to the teacher's current capacity (UPSERT to ensure row exists)
+                            String sqlExt = "INSERT INTO teacher_allowance (teacher_id, daily_limit, temp_extension, school_id, last_reset_date) " +
+                                            "VALUES (?, 0, ?, ?, CURRENT_DATE) ON CONFLICT (teacher_id) " +
+                                            "DO UPDATE SET temp_extension = teacher_allowance.temp_extension + EXCLUDED.temp_extension";
                             try (PreparedStatement pstExt = conn.prepareStatement(sqlExt)) {
-                                pstExt.setDouble(1, amount);
-                                pstExt.setInt(2, tId);
+                                pstExt.setInt(1, tId);
+                                pstExt.setDouble(2, amount);
+                                pstExt.setInt(3, admin.getSchoolId());
                                 pstExt.executeUpdate();
                             }
                         }

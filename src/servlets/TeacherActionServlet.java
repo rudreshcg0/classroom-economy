@@ -3,6 +3,10 @@ package servlets;
 import java.io.IOException;
 import java.sql.*;
 import java.util.Arrays;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Map;
+import java.util.HashMap;
 import jakarta.servlet.*;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
@@ -11,6 +15,82 @@ import models.User;
 
 @WebServlet("/teacherAction")
 public class TeacherActionServlet extends HttpServlet {
+    
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+        HttpSession session = request.getSession();
+        User teacher = (User) session.getAttribute("user");
+        String action = request.getParameter("action");
+
+        if (teacher == null || !teacher.getRole().equalsIgnoreCase("teacher")) {
+            response.sendRedirect("login.jsp"); 
+            return;
+        }
+
+        try (Connection conn = DBConnection.getConnection()) {
+            if ("viewTeacherMarketplaceItems".equals(action)) {
+                System.out.println("DEBUG: viewTeacherMarketplaceItems called for teacher: " + teacher.getId());
+                // Fetch all marketplace items created by the logged-in teacher
+                String sql = "SELECT item_id, item_name, item_description, price, stock FROM marketplace_items WHERE teacher_id = ? AND school_id = ?";
+                try (PreparedStatement pst = conn.prepareStatement(sql)) {
+                    pst.setInt(1, teacher.getId());
+                    pst.setInt(2, teacher.getSchoolId());
+                    ResultSet rs = pst.executeQuery();
+                    
+                    StringBuilder json = new StringBuilder();
+                    json.append("{\"status\":\"success\",\"items\":[");
+                    boolean first = true;
+                    int count = 0;
+                    while (rs.next()) {
+                        count++;
+                        if (!first) json.append(",");
+                        json.append("{");
+                        json.append("\"item_id\":").append(rs.getInt("item_id")).append(",");
+                        json.append("\"item_name\":\"").append(escapeJson(rs.getString("item_name"))).append("\",");
+                        json.append("\"item_description\":\"").append(escapeJson(rs.getString("item_description"))).append("\",");
+                        json.append("\"price\":").append(rs.getDouble("price")).append(",");
+                        json.append("\"stock\":").append(rs.getInt("stock"));
+                        json.append("}");
+                        first = false;
+                    }
+                    json.append("]}");
+                    System.out.println("DEBUG: Found " + count + " items for teacher " + teacher.getId());
+                    
+                    response.setContentType("application/json");
+                    response.getWriter().write(json.toString());
+                }
+            }
+            else if ("getTeacherBlocks".equals(action)) {
+                // Fetch reward blocks for the teacher
+                String sql = "SELECT id, name, amount FROM reward_types WHERE teacher_id = ? OR teacher_id IS NULL ORDER BY name ASC";
+                try (PreparedStatement pst = conn.prepareStatement(sql)) {
+                    pst.setInt(1, teacher.getId());
+                    ResultSet rs = pst.executeQuery();
+                    
+                    StringBuilder json = new StringBuilder();
+                    json.append("{\"status\":\"success\",\"blocks\":[");
+                    boolean first = true;
+                    while (rs.next()) {
+                        if (!first) json.append(",");
+                        json.append("{");
+                        json.append("\"id\":").append(rs.getInt("id")).append(",");
+                        json.append("\"name\":\"").append(escapeJson(rs.getString("name"))).append("\",");
+                        json.append("\"amount\":").append(rs.getDouble("amount"));
+                        json.append("}");
+                        first = false;
+                    }
+                    json.append("]}");
+                    
+                    response.setContentType("application/json");
+                    response.getWriter().write(json.toString());
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            response.setContentType("application/json");
+            response.getWriter().write("{\"status\":\"error\",\"message\":\"Database error\"}");
+        }
+    }
+    
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         HttpSession session = request.getSession();
         User teacher = (User) session.getAttribute("user");
@@ -126,10 +206,88 @@ public class TeacherActionServlet extends HttpServlet {
                     conn.commit(); 
                 }
             }
+            
+            // --- Reward Block Management ---
+            else if ("addRewardType".equals(action)) {
+                String name = request.getParameter("name");
+                double amount = Double.parseDouble(request.getParameter("amount"));
+                String icon = request.getParameter("icon");
+                
+                String sql = "INSERT INTO reward_types (teacher_id, name, amount, icon) VALUES (?, ?, ?, ?)";
+                try (PreparedStatement pst = conn.prepareStatement(sql)) {
+                    pst.setInt(1, teacher.getId());
+                    pst.setString(2, name);
+                    pst.setDouble(3, amount);
+                    pst.setString(4, icon);
+                    pst.executeUpdate();
+                    conn.commit();
+                    response.setContentType("application/json");
+                    response.getWriter().write("{\"status\":\"success\"}");
+                }
+            }
+            else if ("deleteRewardType".equals(action)) {
+                int id = Integer.parseInt(request.getParameter("rewardId"));
+                
+                String sql = "DELETE FROM reward_types WHERE id = ? AND teacher_id = ?";
+                try (PreparedStatement pst = conn.prepareStatement(sql)) {
+                    pst.setInt(1, id);
+                    pst.setInt(2, teacher.getId());
+                    pst.executeUpdate();
+                    conn.commit();
+                    response.setContentType("application/json");
+                    response.getWriter().write("{\"status\":\"success\"}");
+                }
+            }
+            
+            // --- New: Delete Marketplace Item ---
+            else if ("deleteMarketplaceItem".equals(action)) {
+                int itemId = Integer.parseInt(request.getParameter("item_id"));
+                
+                // First, check if the item belongs to the teacher
+                String checkSql = "SELECT teacher_id FROM marketplace_items WHERE item_id = ?";
+                try (PreparedStatement checkPst = conn.prepareStatement(checkSql)) {
+                    checkPst.setInt(1, itemId);
+                    ResultSet rs = checkPst.executeQuery();
+                    if (rs.next()) {
+                        int ownerId = rs.getInt("teacher_id");
+                        if (ownerId != teacher.getId()) {
+                            response.setContentType("application/json");
+                            response.getWriter().write("{\"status\":\"error\",\"message\":\"You can only delete your own items\"}");
+                            return;
+                        }
+                    } else {
+                        response.setContentType("application/json");
+                        response.getWriter().write("{\"status\":\"error\",\"message\":\"Item not found\"}");
+                        return;
+                    }
+                }
+                
+                // Delete the item
+                String deleteSql = "DELETE FROM marketplace_items WHERE item_id = ? AND teacher_id = ?";
+                try (PreparedStatement deletePst = conn.prepareStatement(deleteSql)) {
+                    deletePst.setInt(1, itemId);
+                    deletePst.setInt(2, teacher.getId());
+                    int rowsAffected = deletePst.executeUpdate();
+                    if (rowsAffected > 0) {
+                        conn.commit();
+                        response.setContentType("application/json");
+                        response.getWriter().write("{\"status\":\"success\"}");
+                    } else {
+                        response.setContentType("application/json");
+                        response.getWriter().write("{\"status\":\"error\",\"message\":\"Item not found or you do not have permission to delete it.\"}");
+                    }
+                }
+            }
+            
             response.sendRedirect("teacherDashboard?success=1");
         } catch (Exception e) {
             e.printStackTrace();
             response.sendRedirect("teacherDashboard?error=1");
         }
+    }
+    
+    private String escapeJson(String str) {
+        if (str == null) return "";
+        return str.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t");
     }
 }
