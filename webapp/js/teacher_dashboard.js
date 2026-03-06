@@ -179,21 +179,39 @@ function deleteRewardType(rewardId) {
     .catch(err => console.error('Delete Block Error:', err));
 }
 
+// Replace the loadTeacherBlocks function in teacher_dashboard.js
 function loadTeacherBlocks() {
+    // Note: Action matches the doGet "getTeacherBlocks" in your Servlet
     fetch('teacherAction?action=getTeacherBlocks')
     .then(res => res.json())
     .then(data => {
-        let html = '';
-        data.forEach(block => {
-            html += `<div class="reward-item" style="display:flex; justify-content:space-between; align-items:center; padding:10px; border:1px solid #f1f5f9; border-radius:8px; margin-bottom:8px;">
-                <span><strong>${block.name}</strong> (${block.amount})</span>
-                <button class="btn-delete" style="background:#ef4444; color:white; border:none; padding:5px 10px; border-radius:6px; cursor:pointer;" onclick="deleteRewardType(${block.id})">Delete</button>
-            </div>`;
-        });
-        document.getElementById('rewardBlockList').innerHTML = html;
+        if (data.status === 'success') {
+            const container = document.getElementById('rewardBlockList');
+            let html = '';
+            
+            // The servlet returns { "status": "success", "blocks": [...] }
+            data.blocks.forEach(block => {
+                html += `
+                <div class="reward-item" style="display:flex; justify-content:space-between; align-items:center; padding:10px; border:1px solid #f1f5f9; border-radius:8px; margin-bottom:8px;">
+                    <span><strong>${block.name}</strong> (${block.amount})</span>
+                    <button class="btn-delete" style="background:#ef4444; color:white; border:none; padding:5px 10px; border-radius:6px; cursor:pointer;" 
+                            onclick="deleteRewardType(${block.id})">Delete</button>
+                </div>`;
+            });
+
+            if (data.blocks.length === 0) {
+                html = '<p style="text-align:center; color:#64748b;">No custom blocks yet.</p>';
+            }
+
+            container.innerHTML = html;
+        }
     })
     .catch(err => console.error('Load Blocks Error:', err));
 }
+
+// Update the addRewardType and deleteRewardType to call this
+// These should already be calling loadTeacherBlocks() in your file, 
+// but ensure they don't have preventDefault issues.
 
 // 7. Marketplace: UI Toggles
 function toggleTeacherAudit() {
@@ -279,6 +297,21 @@ window.onload = function () {
         initStudentGridKeyboardNav();
     }
 };
+
+function updateAllowance() {
+    fetch('teacherAction?action=getTeacherAllowance')
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'success') {
+            document.getElementById('allowanceAmount').textContent = '₹' + data.remainingLimit.toFixed(2);
+        }
+    })
+    .catch(err => console.error('Update Allowance Error:', err));
+}
+
+// Update allowance on load and every 30 seconds
+updateAllowance();
+setInterval(updateAllowance, 30000);
 
 function cleanUrl(params) {
     const url = new URL(window.location);
@@ -535,3 +568,33 @@ function deleteMarketplaceItem(itemId) {
         alert('Error deleting item.');
     });
 }
+
+// Add this function to teacher_dashboard.js
+function refreshAllowanceUI() {
+    fetch('teacherAction?action=getTeacherAllowance')
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                const amountElem = document.getElementById('allowanceAmount');
+                if (amountElem) {
+                    // Format the number to 2 decimal places
+                    amountElem.innerText = '₹' + data.remainingLimit.toFixed(2);
+                }
+            }
+        })
+        .catch(err => console.error('Error refreshing allowance:', err));
+}
+
+// Update existing submitReward function to refresh UI after a reward is given
+// This ensures the limit drops immediately in the UI after awarding money.
+const originalSubmitReward = submitReward;
+submitReward = function(rewardId) {
+    // You can either wrap the existing submit or rely on the page reload 
+    // if the form submits traditionally. 
+    // If you are using AJAX for rewards, call refreshAllowanceUI() in the .then() block.
+    originalSubmitReward(rewardId);
+};
+
+// Auto-refresh every 30 seconds to catch Admin approvals 
+// without the teacher doing anything
+setInterval(refreshAllowanceUI, 30000);

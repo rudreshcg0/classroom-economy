@@ -47,9 +47,9 @@
 
         <div class="limit-box">
             <div class="limit-info">
-                <small>Remaining Daily Soft Limit</small>
-                <h2>₹${remainingLimit != null ? String.format("%.2f", remainingLimit) : "0.00"}</h2>
-            </div>
+    <small>Remaining Daily Soft Limit</small>
+    <h2 id="allowanceAmount">₹${remainingLimit != null ? String.format("%.2f", remainingLimit) : "0.00"}</h2>
+</div>
             <button class="btn-request" onclick="showTab('overview', this); document.getElementById('extensionModal').style.display='flex'">➕ Request Extension</button>
         </div>
 
@@ -150,17 +150,21 @@
             <button onclick="document.getElementById('rewardConfigModal').style.display='none'" class="btn-close">✕</button>
         </div>
         <div id="rewardBlockList" class="scroll-area" style="max-height: 200px; margin-bottom: 20px;">
-            <%
-                List<Map<String, Object>> tRewards = (List<Map<String, Object>>) request.getAttribute("teacherRewardTypes");
-                if (tRewards != null && !tRewards.isEmpty()) {
-                    for (Map<String, Object> r : tRewards) {
-            %>
-            <div class="reward-item" style="display:flex; justify-content:space-between; align-items:center; padding:10px; border:1px solid #f1f5f9; border-radius:8px; margin-bottom:8px;">
-                <span><strong><%= r.get("name") %></strong> (<%= r.get("amount") %>)</span>
-                <button class="btn-delete" style="background:#ef4444; color:white; border:none; padding:5px 10px; border-radius:6px; cursor:pointer;" onclick="deleteRewardType(<%= r.get("id") %>)">Delete</button>
-            </div>
-            <% } } %>
+    <%
+        // Keep this server-side block for the initial page load
+        List<Map<String, Object>> tRewards = (List<Map<String, Object>>) request.getAttribute("teacherRewardTypes");
+        if (tRewards != null && !tRewards.isEmpty()) {
+            for (Map<String, Object> r : tRewards) {
+    %>
+        <div class="reward-item" style="display:flex; justify-content:space-between; align-items:center; padding:10px; border:1px solid #f1f5f9; border-radius:8px; margin-bottom:8px;">
+            <span><strong><%= r.get("name") %></strong> (<%= r.get("amount") %>)</span>
+            <button class="btn-delete" style="background:#ef4444; color:white; border:none; padding:5px 10px; border-radius:6px; cursor:pointer;" onclick="deleteRewardType(<%= r.get("id") %>)">Delete</button>
         </div>
+    <%      } 
+        } else { %>
+        <p style="text-align:center; color:#64748b;">No custom blocks yet.</p>
+    <% } %>
+</div>
         <form id="addRewardForm" onsubmit="addRewardType(event)">
             <input type="text" id="newRewardName" placeholder="Block Name" required>
             <input type="number" id="newRewardAmount" placeholder="Value" step="0.01" required>

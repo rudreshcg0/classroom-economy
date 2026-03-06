@@ -40,10 +40,16 @@ public class TeacherDashboardServlet extends HttpServlet {
                 }
             }
 
-            // Logic to visually reset extension in the UI if a new day has started
+            // Logic to reset extension in DB if a new day has started
             java.sql.Date today = new java.sql.Date(System.currentTimeMillis());
             if (lastReset != null && !lastReset.toString().equals(today.toString())) {
                 tempExtension = 0.0;
+                // Update DB to reset temp_extension and update last_reset_date
+                String updateSql = "UPDATE teacher_allowance SET temp_extension = 0, last_reset_date = CURRENT_DATE WHERE teacher_id = ?";
+                try (PreparedStatement pstUpdate = conn.prepareStatement(updateSql)) {
+                    pstUpdate.setInt(1, teacher.getId());
+                    pstUpdate.executeUpdate();
+                }
             }
 
             String sqlSpent = "SELECT SUM(amount) as total FROM transactions " +

@@ -3,10 +3,6 @@ package servlets;
 import java.io.IOException;
 import java.sql.*;
 import java.util.Arrays;
-import java.util.List;
-import java.util.ArrayList;
-import java.util.Map;
-import java.util.HashMap;
 import jakarta.servlet.*;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
@@ -28,9 +24,7 @@ public class TeacherActionServlet extends HttpServlet {
 
         try (Connection conn = DBConnection.getConnection()) {
             if ("viewTeacherMarketplaceItems".equals(action)) {
-                System.out.println("DEBUG: viewTeacherMarketplaceItems called for teacher: " + teacher.getId());
-                // Fetch all marketplace items created by the logged-in teacher
-                String sql = "SELECT item_id, item_name, item_description, price, stock FROM marketplace_items WHERE teacher_id = ? AND school_id = ?";
+                String sql = "SELECT item_id, item_name, item_description, price, stock FROM marketplace_items WHERE teacher_id = ? AND school_id = ? AND (stock > 0 OR stock = -1)";
                 try (PreparedStatement pst = conn.prepareStatement(sql)) {
                     pst.setInt(1, teacher.getId());
                     pst.setInt(2, teacher.getSchoolId());
@@ -39,9 +33,7 @@ public class TeacherActionServlet extends HttpServlet {
                     StringBuilder json = new StringBuilder();
                     json.append("{\"status\":\"success\",\"items\":[");
                     boolean first = true;
-                    int count = 0;
                     while (rs.next()) {
-                        count++;
                         if (!first) json.append(",");
                         json.append("{");
                         json.append("\"item_id\":").append(rs.getInt("item_id")).append(",");
@@ -53,14 +45,12 @@ public class TeacherActionServlet extends HttpServlet {
                         first = false;
                     }
                     json.append("]}");
-                    System.out.println("DEBUG: Found " + count + " items for teacher " + teacher.getId());
                     
                     response.setContentType("application/json");
                     response.getWriter().write(json.toString());
                 }
             }
             else if ("getTeacherBlocks".equals(action)) {
-                // Fetch reward blocks for the teacher
                 String sql = "SELECT id, name, amount FROM reward_types WHERE teacher_id = ? OR teacher_id IS NULL ORDER BY name ASC";
                 try (PreparedStatement pst = conn.prepareStatement(sql)) {
                     pst.setInt(1, teacher.getId());
@@ -84,6 +74,38 @@ public class TeacherActionServlet extends HttpServlet {
                     response.getWriter().write(json.toString());
                 }
             }
+            else if ("getTeacherAllowance".equals(action)) {
+                // New logic for dynamic allowance updates
+                double dailyLimit = 0.0;
+                double tempExtension = 0.0;
+                double spentToday = 0.0;
+
+                // 1. Fetch current limits
+                String sqlLimits = "SELECT daily_limit, temp_extension FROM teacher_allowance WHERE teacher_id = ?";
+                try (PreparedStatement pst1 = conn.prepareStatement(sqlLimits)) {
+                    pst1.setInt(1, teacher.getId());
+                    ResultSet rs1 = pst1.executeQuery();
+                    if (rs1.next()) {
+                        dailyLimit = rs1.getDouble("daily_limit");
+                        tempExtension = rs1.getDouble("temp_extension");
+                    }
+                }
+
+                // 2. Calculate spending today
+                String sqlSpent = "SELECT SUM(amount) as total FROM transactions WHERE sender_id = ? AND type = 'REWARD_AWARD' AND created_at >= CURRENT_DATE";
+                try (PreparedStatement pstSpent = conn.prepareStatement(sqlSpent)) {
+                    pstSpent.setInt(1, teacher.getId());
+                    ResultSet rsSpent = pstSpent.executeQuery();
+                    if (rsSpent.next()) {
+                        spentToday = rsSpent.getDouble("total");
+                    }
+                }
+
+                double remaining = (dailyLimit + tempExtension) - spentToday;
+
+                response.setContentType("application/json");
+                response.getWriter().write("{\"status\":\"success\", \"remainingLimit\":" + remaining + "}");
+            }
         } catch (Exception e) {
             e.printStackTrace();
             response.setContentType("application/json");
@@ -96,41 +118,33 @@ public class TeacherActionServlet extends HttpServlet {
         User teacher = (User) session.getAttribute("user");
         String action = request.getParameter("action");
 
-        // Updated redirect to .jsp
         if (teacher == null || !teacher.getRole().equalsIgnoreCase("teacher")) {
             response.sendRedirect("login.jsp"); 
             return;
         }
 
         try (Connection conn = DBConnection.getConnection()) {
-            conn.setAutoCommit(false); 
+            conn.setAutoCommit(false);
 
-          // --- NEW: Student Creation Logic ---
             if ("addStudent".equals(action)) {
                 String studentUser = request.getParameter("username");
                 String studentPass = request.getParameter("password");
                 String rollNo = request.getParameter("rollNo");
-                String email = request.getParameter("email"); // Added email parameter
+                String email = request.getParameter("email");
 
-                // UPDATED SQL: Added email column and one extra '?'
                 String sql = "INSERT INTO users (username, password, role, school_id, roll_no, email, must_change_password) VALUES (?, ?, 'student', ?, ?, ?, TRUE)";
                 try (PreparedStatement pst = conn.prepareStatement(sql)) {
                     pst.setString(1, studentUser);
                     pst.setString(2, studentPass);
                     pst.setInt(3, teacher.getSchoolId());
                     pst.setString(4, rollNo);
-                    pst.setString(5, email); // Set the email value
+                    pst.setString(5, email);
                     pst.executeUpdate();
                 }
                 conn.commit();
             }
-            
-            // --- Existing Marketplace Logic ---
             else if ("createItem".equals(action)) {
-                // NEW: Capture the checkbox value (Defaults to true if not checked)
                 boolean requiresApproval = request.getParameter("requiresApproval") != null;
-
-                // UPDATED SQL: Added requires_approval column
                 String sql = "INSERT INTO marketplace_items (teacher_id, school_id, item_name, price, stock, item_description, requires_approval) VALUES (?, ?, ?, ?, ?, ?, ?)";
                 try (PreparedStatement pst = conn.prepareStatement(sql)) {
                     pst.setInt(1, teacher.getId());
@@ -139,7 +153,7 @@ public class TeacherActionServlet extends HttpServlet {
                     pst.setDouble(4, Double.parseDouble(request.getParameter("price")));
                     pst.setInt(5, Integer.parseInt(request.getParameter("stock")));
                     pst.setString(6, request.getParameter("description"));
-                    pst.setBoolean(7, requiresApproval); // Set the new boolean value
+                    pst.setBoolean(7, requiresApproval);
                     pst.executeUpdate();
                 }
                 conn.commit();
@@ -151,9 +165,7 @@ public class TeacherActionServlet extends HttpServlet {
                 if (selectedIds != null && selectedIds.length > 0) {
                     for (String idStr : selectedIds) {
                         int orderId = Integer.parseInt(idStr);
-                        
                         if ("REJECTED".equals(decision)) {
-                            // 1. Fetch details for Refund & Restock
                             String sqlFind = "SELECT student_id, item_id, price, item_name FROM marketplace_orders WHERE order_id = ?";
                             try (PreparedStatement pstF = conn.prepareStatement(sqlFind)) {
                                 pstF.setInt(1, orderId);
@@ -164,7 +176,6 @@ public class TeacherActionServlet extends HttpServlet {
                                     double price = rsF.getDouble("price");
                                     String item = rsF.getString("item_name");
 
-                                    // 2. Refund Wallet
                                     String sqlRefund = "UPDATE wallets SET balance = balance + ? WHERE student_id = ?";
                                     try (PreparedStatement pstR = conn.prepareStatement(sqlRefund)) {
                                         pstR.setDouble(1, price);
@@ -172,14 +183,12 @@ public class TeacherActionServlet extends HttpServlet {
                                         pstR.executeUpdate();
                                     }
 
-                                    // 3. RESTOCK
                                     String sqlRestock = "UPDATE marketplace_items SET stock = stock + 1 WHERE item_id = ? AND stock <> -1";
                                     try (PreparedStatement pstRS = conn.prepareStatement(sqlRestock)) {
                                         pstRS.setInt(1, itemId);
                                         pstRS.executeUpdate();
                                     }
 
-                                    // 4. Log Transaction
                                     String sqlLog = "INSERT INTO transactions (receiver_id, amount, type, description, school_id) VALUES (?, ?, 'REFUND', ?, ?)";
                                     try (PreparedStatement pstL = conn.prepareStatement(sqlLog)) {
                                         pstL.setInt(1, studentId);
@@ -192,8 +201,6 @@ public class TeacherActionServlet extends HttpServlet {
                             }
                         }
                     }
-
-                    // 5. Update Order Statuses
                     String finalStatus = "APPROVED".equals(decision) ? "COMPLETED" : "REJECTED";
                     String sqlUpdate = "UPDATE marketplace_orders SET status = ? WHERE order_id = ANY(?)";
                     try (PreparedStatement pstU = conn.prepareStatement(sqlUpdate)) {
@@ -206,8 +213,6 @@ public class TeacherActionServlet extends HttpServlet {
                     conn.commit(); 
                 }
             }
-            
-            // --- Reward Block Management ---
             else if ("addRewardType".equals(action)) {
                 String name = request.getParameter("name");
                 double amount = Double.parseDouble(request.getParameter("amount"));
@@ -221,60 +226,37 @@ public class TeacherActionServlet extends HttpServlet {
                     pst.setString(4, icon);
                     pst.executeUpdate();
                     conn.commit();
+                    
                     response.setContentType("application/json");
                     response.getWriter().write("{\"status\":\"success\"}");
+                    return; 
                 }
             }
             else if ("deleteRewardType".equals(action)) {
                 int id = Integer.parseInt(request.getParameter("rewardId"));
-                
                 String sql = "DELETE FROM reward_types WHERE id = ? AND teacher_id = ?";
                 try (PreparedStatement pst = conn.prepareStatement(sql)) {
                     pst.setInt(1, id);
                     pst.setInt(2, teacher.getId());
                     pst.executeUpdate();
                     conn.commit();
+                    
                     response.setContentType("application/json");
                     response.getWriter().write("{\"status\":\"success\"}");
+                    return;
                 }
             }
-            
-            // --- New: Delete Marketplace Item ---
             else if ("deleteMarketplaceItem".equals(action)) {
-                int itemId = Integer.parseInt(request.getParameter("item_id"));
-                
-                // First, check if the item belongs to the teacher
-                String checkSql = "SELECT teacher_id FROM marketplace_items WHERE item_id = ?";
-                try (PreparedStatement checkPst = conn.prepareStatement(checkSql)) {
-                    checkPst.setInt(1, itemId);
-                    ResultSet rs = checkPst.executeQuery();
-                    if (rs.next()) {
-                        int ownerId = rs.getInt("teacher_id");
-                        if (ownerId != teacher.getId()) {
-                            response.setContentType("application/json");
-                            response.getWriter().write("{\"status\":\"error\",\"message\":\"You can only delete your own items\"}");
-                            return;
-                        }
-                    } else {
-                        response.setContentType("application/json");
-                        response.getWriter().write("{\"status\":\"error\",\"message\":\"Item not found\"}");
-                        return;
-                    }
-                }
-                
-                // Delete the item
+                int itemId = Integer.parseInt(request.getParameter("itemId"));
                 String deleteSql = "DELETE FROM marketplace_items WHERE item_id = ? AND teacher_id = ?";
                 try (PreparedStatement deletePst = conn.prepareStatement(deleteSql)) {
                     deletePst.setInt(1, itemId);
                     deletePst.setInt(2, teacher.getId());
-                    int rowsAffected = deletePst.executeUpdate();
-                    if (rowsAffected > 0) {
+                    if (deletePst.executeUpdate() > 0) {
                         conn.commit();
                         response.setContentType("application/json");
                         response.getWriter().write("{\"status\":\"success\"}");
-                    } else {
-                        response.setContentType("application/json");
-                        response.getWriter().write("{\"status\":\"error\",\"message\":\"Item not found or you do not have permission to delete it.\"}");
+                        return;
                     }
                 }
             }
@@ -282,10 +264,15 @@ public class TeacherActionServlet extends HttpServlet {
             response.sendRedirect("teacherDashboard?success=1");
         } catch (Exception e) {
             e.printStackTrace();
-            response.sendRedirect("teacherDashboard?error=1");
+            if ("addRewardType".equals(action) || "deleteRewardType".equals(action) || "deleteMarketplaceItem".equals(action)) {
+                response.setContentType("application/json");
+                response.getWriter().write("{\"status\":\"error\",\"message\":\"" + e.getMessage() + "\"}");
+            } else {
+                response.sendRedirect("teacherDashboard?error=1");
+            }
         }
     }
-    
+
     private String escapeJson(String str) {
         if (str == null) return "";
         return str.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t");
