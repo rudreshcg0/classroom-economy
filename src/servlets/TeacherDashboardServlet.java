@@ -27,19 +27,31 @@ public class TeacherDashboardServlet extends HttpServlet {
             double dailyLimit = 0.0;
             double tempExtension = 0.0;
             double spentToday = 0.0;
+            java.sql.Date lastReset = null; 
 
-            // Get assigned limits from the database
-            String sqlLimits = "SELECT daily_limit, temp_extension FROM teacher_allowance WHERE teacher_id = ?";
+            String sqlLimits = "SELECT daily_limit, temp_extension, last_reset_date FROM teacher_allowance WHERE teacher_id = ?";
             try (PreparedStatement pst1 = conn.prepareStatement(sqlLimits)) {
                 pst1.setInt(1, teacher.getId());
                 ResultSet rs1 = pst1.executeQuery();
                 if (rs1.next()) {
                     dailyLimit = rs1.getDouble("daily_limit");
                     tempExtension = rs1.getDouble("temp_extension");
+                    lastReset = rs1.getDate("last_reset_date"); 
                 }
             }
 
-            // Calculate how much the teacher has rewarded today
+            // Logic to reset extension in DB if a new day has started
+            java.sql.Date today = new java.sql.Date(System.currentTimeMillis());
+            if (lastReset != null && !lastReset.toString().equals(today.toString())) {
+                tempExtension = 0.0;
+                // Update DB to reset temp_extension and update last_reset_date
+                String updateSql = "UPDATE teacher_allowance SET temp_extension = 0, last_reset_date = CURRENT_DATE WHERE teacher_id = ?";
+                try (PreparedStatement pstUpdate = conn.prepareStatement(updateSql)) {
+                    pstUpdate.setInt(1, teacher.getId());
+                    pstUpdate.executeUpdate();
+                }
+            }
+
             String sqlSpent = "SELECT SUM(amount) as total FROM transactions " +
                              "WHERE sender_id = ? AND type = 'REWARD_AWARD' " +
                              "AND created_at >= CURRENT_DATE";
@@ -70,28 +82,33 @@ public class TeacherDashboardServlet extends HttpServlet {
 
             // 3. Fetch Teacher's Own Marketplace Inventory
             List<MarketplaceItem> myItems = new ArrayList<>();
+            // UPDATED SQL: Includes requires_approval column
             String sqlI = "SELECT * FROM marketplace_items WHERE teacher_id = ?";
             try (PreparedStatement pstI = conn.prepareStatement(sqlI)) {
                 pstI.setInt(1, teacher.getId());
                 ResultSet rsI = pstI.executeQuery();
                 while(rsI.next()) {
+                    // UPDATED: Using constructor with 6 arguments
                     myItems.add(new MarketplaceItem(
                         rsI.getInt("item_id"), 
                         rsI.getString("item_name"), 
                         rsI.getString("item_description"), 
                         rsI.getDouble("price"), 
-                        rsI.getInt("stock")
+                        rsI.getInt("stock"),
+                        rsI.getBoolean("requires_approval")
                     ));
                 }
             }
 
             // 4. Fetch Pending Fulfillment Orders
             List<Map<String, Object>> pendingOrders = new ArrayList<>();
+            // CRITICAL FIX: Only fetch orders that are 'PENDING_TEACHER' for items created by this teacher
             String sqlO = "SELECT o.order_id, o.item_name, o.purchased_at, u.username FROM marketplace_orders o " +
                           "JOIN users u ON o.student_id = u.user_id " +
-                          "WHERE o.status = 'PENDING_TEACHER' AND u.school_id = ?";
+                          "JOIN marketplace_items i ON o.item_id = i.item_id " +
+                          "WHERE o.status = 'PENDING_TEACHER' AND i.teacher_id = ?";
             try (PreparedStatement pstO = conn.prepareStatement(sqlO)) {
-                pstO.setInt(1, teacher.getSchoolId());
+                pstO.setInt(1, teacher.getId());
                 ResultSet rsO = pstO.executeQuery();
                 while(rsO.next()) {
                     Map<String, Object> map = new HashMap<>();
@@ -106,9 +123,9 @@ public class TeacherDashboardServlet extends HttpServlet {
             // 5. Fetch Full School Audit History
             List<Map<String, Object>> fullAudit = new ArrayList<>();
             String sqlAudit = "SELECT o.*, u.username FROM marketplace_orders o " +
-                              "JOIN users u ON o.student_id = u.user_id " +
-                              "WHERE u.school_id = ? AND o.status IN ('COMPLETED', 'REJECTED') " +
-                              "ORDER BY purchased_at DESC";
+                             "JOIN users u ON o.student_id = u.user_id " +
+                             "WHERE u.school_id = ? AND o.status IN ('COMPLETED', 'REJECTED') " +
+                             "ORDER BY purchased_at DESC";
             try (PreparedStatement pstA = conn.prepareStatement(sqlAudit)) {
                 pstA.setInt(1, teacher.getSchoolId());
                 ResultSet rsA = pstA.executeQuery();
@@ -139,7 +156,7 @@ public class TeacherDashboardServlet extends HttpServlet {
                 }
             }
 
-            // Set new data for JSP
+            // Set data for JSP
             request.setAttribute("dailyLimit", dailyLimit);
             request.setAttribute("tempExtension", tempExtension);
             request.setAttribute("remainingLimit", remainingLimit);

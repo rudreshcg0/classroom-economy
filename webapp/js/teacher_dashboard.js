@@ -137,7 +137,7 @@ function addRewardType(event) {
     params.append('amount', amount);
     params.append('icon', icon);
 
-    fetch('rewardAction', {
+    fetch('teacherAction', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: params
@@ -145,7 +145,10 @@ function addRewardType(event) {
     .then(res => res.json())
     .then(data => {
         if (data.status === 'success') {
-            location.reload(); // Refresh to update both management list and reward grid
+            loadTeacherBlocks(); // Reload the block list dynamically
+            document.getElementById('newRewardName').value = '';
+            document.getElementById('newRewardAmount').value = '';
+            document.getElementById('newRewardIcon').value = '';
         } else {
             alert('Error: ' + data.message);
         }
@@ -160,7 +163,7 @@ function deleteRewardType(rewardId) {
     params.append('action', 'deleteRewardType');
     params.append('rewardId', rewardId);
 
-    fetch('rewardAction', {
+    fetch('teacherAction', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: params
@@ -168,14 +171,47 @@ function deleteRewardType(rewardId) {
     .then(res => res.json())
     .then(data => {
         if (data.status === 'success') {
-            const item = document.getElementById(`reward-item-${rewardId}`);
-            if (item) item.remove();
+            loadTeacherBlocks(); // Reload the block list dynamically
         } else {
             alert('Error: ' + data.message);
         }
     })
     .catch(err => console.error('Delete Block Error:', err));
 }
+
+// Replace the loadTeacherBlocks function in teacher_dashboard.js
+function loadTeacherBlocks() {
+    // Note: Action matches the doGet "getTeacherBlocks" in your Servlet
+    fetch('teacherAction?action=getTeacherBlocks')
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'success') {
+            const container = document.getElementById('rewardBlockList');
+            let html = '';
+            
+            // The servlet returns { "status": "success", "blocks": [...] }
+            data.blocks.forEach(block => {
+                html += `
+                <div class="reward-item" style="display:flex; justify-content:space-between; align-items:center; padding:10px; border:1px solid #f1f5f9; border-radius:8px; margin-bottom:8px;">
+                    <span><strong>${block.name}</strong> (${block.amount})</span>
+                    <button class="btn-delete" style="background:#ef4444; color:white; border:none; padding:5px 10px; border-radius:6px; cursor:pointer;" 
+                            onclick="deleteRewardType(${block.id})">Delete</button>
+                </div>`;
+            });
+
+            if (data.blocks.length === 0) {
+                html = '<p style="text-align:center; color:#64748b;">No custom blocks yet.</p>';
+            }
+
+            container.innerHTML = html;
+        }
+    })
+    .catch(err => console.error('Load Blocks Error:', err));
+}
+
+// Update the addRewardType and deleteRewardType to call this
+// These should already be calling loadTeacherBlocks() in your file, 
+// but ensure they don't have preventDefault issues.
 
 // 7. Marketplace: UI Toggles
 function toggleTeacherAudit() {
@@ -236,6 +272,11 @@ window.onload = function () {
     const btn = document.querySelector(`[onclick*="${tabId}"]`);
     if(btn) showTab(tabId, btn);
 
+    // Initialize marketplace section if on marketplace tab
+    if (tabId === 'marketplace') {
+        showMarketplaceSection('create');
+    }
+
     // Attendance Launcher
     const classSelect = document.getElementById('attendanceClassSelect');
     const launchBtn = document.getElementById('launchAttendanceBtn');
@@ -256,6 +297,21 @@ window.onload = function () {
         initStudentGridKeyboardNav();
     }
 };
+
+function updateAllowance() {
+    fetch('teacherAction?action=getTeacherAllowance')
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'success') {
+            document.getElementById('allowanceAmount').textContent = '₹' + data.remainingLimit.toFixed(2);
+        }
+    })
+    .catch(err => console.error('Update Allowance Error:', err));
+}
+
+// Update allowance on load and every 30 seconds
+updateAllowance();
+setInterval(updateAllowance, 30000);
 
 function cleanUrl(params) {
     const url = new URL(window.location);
@@ -408,3 +464,137 @@ function openRewardGrid(type) {
             modal.style.display = 'flex';
         });
 }
+
+function showMarketplaceSection(sectionId) {
+    // Hide all marketplace sections
+    document.querySelectorAll('.marketplace-section').forEach(section => {
+        section.style.display = 'none';
+    });
+    
+    // Show selected section
+    const selectedSection = document.getElementById('marketplace-' + sectionId);
+    if (selectedSection) {
+        selectedSection.style.display = 'block';
+        
+        // If viewing listings, load the data
+        if (sectionId === 'listings') {
+            loadTeacherListings();
+        }
+    }
+}
+
+function loadTeacherListings() {
+    console.log('DEBUG: loadTeacherListings called');
+    fetch('teacherAction?action=viewTeacherMarketplaceItems')
+        .then(response => {
+            console.log('DEBUG: Response received', response);
+            return response.json();
+        })
+        .then(data => {
+            console.log('DEBUG: Data received', data);
+            const container = document.getElementById('listingsContainer');
+            container.innerHTML = '';
+            
+            if (data.items && data.items.length > 0) {
+                console.log('DEBUG: Processing ' + data.items.length + ' items');
+                const table = document.createElement('table');
+                table.style.width = '100%';
+                table.style.borderCollapse = 'collapse';
+                table.innerHTML = `
+                    <thead>
+                        <tr style="background: #f7fafc;">
+                            <th style="padding: 14px 16px; border-bottom: 1px solid #f1f5f9; text-align: left;">Item Name</th>
+                            <th style="padding: 14px 16px; border-bottom: 1px solid #f1f5f9; text-align: left;">Description</th>
+                            <th style="padding: 14px 16px; border-bottom: 1px solid #f1f5f9; text-align: left;">Price</th>
+                            <th style="padding: 14px 16px; border-bottom: 1px solid #f1f5f9; text-align: left;">Stock</th>
+                            <th style="padding: 14px 16px; border-bottom: 1px solid #f1f5f9; text-align: left;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                `;
+                
+                const tbody = table.querySelector('tbody');
+                data.items.forEach(item => {
+                    console.log('DEBUG: Processing item', item);
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td style="padding: 14px 16px; border-bottom: 1px solid #f1f5f9;">${item.item_name}</td>
+                        <td style="padding: 14px 16px; border-bottom: 1px solid #f1f5f9;">${item.item_description || ''}</td>
+                        <td style="padding: 14px 16px; border-bottom: 1px solid #f1f5f9;">$${item.price}</td>
+                        <td style="padding: 14px 16px; border-bottom: 1px solid #f1f5f9;">${item.stock === -1 ? '∞' : item.stock}</td>
+                        <td style="padding: 14px 16px; border-bottom: 1px solid #f1f5f9;">
+                            <button onclick="deleteMarketplaceItem(${item.item_id})" class="btn-submit" style="background:#ef4444; padding: 6px 12px; font-size: 12px;">Delete</button>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+                
+                container.appendChild(table);
+            } else {
+                console.log('DEBUG: No items found');
+                container.innerHTML = '<p style="text-align: center; color: #94a3b8; padding: 20px;">No items listed yet.</p>';
+            }
+        })
+        .catch(err => {
+            console.error('Error loading listings:', err);
+            document.getElementById('listingsContainer').innerHTML = '<p style="text-align: center; color: #ef4444;">Error loading listings.</p>';
+        });
+}
+
+function deleteMarketplaceItem(itemId) {
+    if (!confirm('Are you sure you want to delete this item? This action cannot be undone.')) {
+        return;
+    }
+    
+    const params = new URLSearchParams();
+    params.append('action', 'deleteMarketplaceItem');
+    params.append('itemId', itemId);
+    
+    fetch('teacherAction', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            loadTeacherListings(); // Reload the listings
+        } else {
+            alert('Error: ' + data.message);
+        }
+    })
+    .catch(err => {
+        console.error('Delete error:', err);
+        alert('Error deleting item.');
+    });
+}
+
+// Add this function to teacher_dashboard.js
+function refreshAllowanceUI() {
+    fetch('teacherAction?action=getTeacherAllowance')
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                const amountElem = document.getElementById('allowanceAmount');
+                if (amountElem) {
+                    // Format the number to 2 decimal places
+                    amountElem.innerText = '₹' + data.remainingLimit.toFixed(2);
+                }
+            }
+        })
+        .catch(err => console.error('Error refreshing allowance:', err));
+}
+
+// Update existing submitReward function to refresh UI after a reward is given
+// This ensures the limit drops immediately in the UI after awarding money.
+const originalSubmitReward = submitReward;
+submitReward = function(rewardId) {
+    // You can either wrap the existing submit or rely on the page reload 
+    // if the form submits traditionally. 
+    // If you are using AJAX for rewards, call refreshAllowanceUI() in the .then() block.
+    originalSubmitReward(rewardId);
+};
+
+// Auto-refresh every 30 seconds to catch Admin approvals 
+// without the teacher doing anything
+setInterval(refreshAllowanceUI, 30000);
