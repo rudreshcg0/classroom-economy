@@ -1,5 +1,5 @@
 -- ==========================================
--- PHASE 1: CORE INFRASTRUCTURE (The Basics)
+-- PHASE 1: CORE INFRASTRUCTURE
 -- ==========================================
 
 CREATE TABLE schools (
@@ -12,14 +12,20 @@ CREATE TABLE users (
     user_id SERIAL PRIMARY KEY,
     username VARCHAR(100) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
-    role VARCHAR(20) CHECK (role IN ('super_admin', 'school_admin', 'teacher', 'student')),
+    role VARCHAR(20) CHECK (role IN ('super_admin', 'school_admin', 'teacher', 'student', 'platform_root')),
     school_id INTEGER REFERENCES schools(school_id) ON DELETE CASCADE,
+    full_name VARCHAR(150),
+    email VARCHAR(150) UNIQUE,
+    birthdate DATE,
     roll_no VARCHAR(20) DEFAULT NULL,
+    must_change_password BOOLEAN DEFAULT TRUE,
+    otp_code VARCHAR(10),
+    otp_expiry TIMESTAMP,
     CONSTRAINT unique_roll_per_school UNIQUE (roll_no, school_id)
 );
 
 -- ==========================================
--- PHASE 2: ECONOMY LAYER (The Money)
+-- PHASE 2: ECONOMY LAYER
 -- ==========================================
 
 CREATE TABLE wallets (
@@ -36,10 +42,9 @@ CREATE TABLE teacher_allowance (
 );
 
 -- ==========================================
--- PHASE 3: ACADEMIC LAYER (Classes & Junctions)
+-- PHASE 3: ACADEMIC LAYER
 -- ==========================================
 
--- We added ON DELETE SET NULL here recently so classes stay if a teacher leaves
 CREATE TABLE classes (
     class_id SERIAL PRIMARY KEY,
     class_name VARCHAR(100) NOT NULL,
@@ -48,7 +53,6 @@ CREATE TABLE classes (
     pay_per_session DECIMAL(10,2) DEFAULT 10.00
 );
 
--- This is the NEWEST addition: Allows students in multiple classes
 CREATE TABLE student_classes (
     student_id INT REFERENCES users(user_id) ON DELETE CASCADE,
     class_id INT REFERENCES classes(class_id) ON DELETE CASCADE,
@@ -56,7 +60,7 @@ CREATE TABLE student_classes (
 );
 
 -- ==========================================
--- PHASE 4: TRANSACTION LAYER (Logs & History)
+-- PHASE 4: TRANSACTION & REQUEST LAYER
 -- ==========================================
 
 CREATE TABLE attendance (
@@ -74,7 +78,7 @@ CREATE TABLE transactions (
     sender_id INTEGER REFERENCES users(user_id), 
     receiver_id INTEGER REFERENCES users(user_id), 
     amount DECIMAL(10,2) NOT NULL,
-    type VARCHAR(20), -- 'ALLOWANCE', 'ATTENDANCE_PAY', 'TRANSFER'
+    type VARCHAR(50), -- 'ALLOWANCE', 'ATTENDANCE_PAY', 'TRANSFER', 'REWARD'
     description TEXT,
     school_id INTEGER REFERENCES schools(school_id),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -82,43 +86,13 @@ CREATE TABLE transactions (
 
 CREATE TABLE payment_requests (
     request_id SERIAL PRIMARY KEY,
-    sender_id INT REFERENCES users(user_id), -- The one who wants money
-    receiver_id INT REFERENCES users(user_id), -- The one who has to pay
+    sender_id INT REFERENCES users(user_id),
+    receiver_id INT REFERENCES users(user_id),
     amount DECIMAL(10,2) NOT NULL,
     description TEXT,
-    status VARCHAR(20) DEFAULT 'PENDING', -- PENDING, APPROVED, DECLINED
+    status VARCHAR(20) DEFAULT 'PENDING',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     school_id INT REFERENCES schools(school_id)
-);
-
-CREATE TABLE marketplace_orders (
-    order_id SERIAL PRIMARY KEY,
-    student_id INT REFERENCES users(user_id),
-    item_name VARCHAR(100),
-    price DECIMAL(10,2),
-    status VARCHAR(20) DEFAULT 'PENDING_TEACHER', -- Teacher must acknowledge
-    purchased_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- 1. Table for items created by teachers
-CREATE TABLE marketplace_items (
-    item_id SERIAL PRIMARY KEY,
-    teacher_id INT REFERENCES users(user_id),
-    school_id INT REFERENCES schools(school_id),
-    item_name VARCHAR(100) NOT NULL,
-    item_description TEXT,
-    price DECIMAL(10,2) NOT NULL,
-    stock INT DEFAULT -1, -- Use -1 for unlimited, 0 for Sold Out
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE reward_types (
-    id SERIAL PRIMARY KEY,
-    teacher_id INT REFERENCES users(user_id) ON DELETE CASCADE,
-    name VARCHAR(50) NOT NULL,
-    amount DECIMAL(10, 2) NOT NULL,
-    icon VARCHAR(20) DEFAULT '⭐',
-    is_positive BOOLEAN DEFAULT TRUE
 );
 
 CREATE TABLE limit_requests (
@@ -129,4 +103,36 @@ CREATE TABLE limit_requests (
     status VARCHAR(20) DEFAULT 'PENDING',
     school_id INT REFERENCES schools(school_id),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ==========================================
+-- PHASE 5: MARKETPLACE & REWARDS
+-- ==========================================
+
+CREATE TABLE marketplace_items (
+    item_id SERIAL PRIMARY KEY,
+    teacher_id INT REFERENCES users(user_id),
+    school_id INT REFERENCES schools(school_id),
+    item_name VARCHAR(100) NOT NULL,
+    item_description TEXT,
+    price DECIMAL(10,2) NOT NULL,
+    stock INT DEFAULT -1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE marketplace_orders (
+    order_id SERIAL PRIMARY KEY,
+    student_id INT REFERENCES users(user_id),
+    item_id INT REFERENCES marketplace_items(item_id),
+    status VARCHAR(20) DEFAULT 'PENDING_TEACHER',
+    purchased_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE reward_types (
+    id SERIAL PRIMARY KEY,
+    teacher_id INT REFERENCES users(user_id) ON DELETE CASCADE,
+    name VARCHAR(50) NOT NULL,
+    amount DECIMAL(10, 2) NOT NULL,
+    icon VARCHAR(20) DEFAULT '⭐',
+    is_positive BOOLEAN DEFAULT TRUE
 );
