@@ -8,7 +8,7 @@
     <display-name>Virtual Classroom Economy</display-name>
 
     <welcome-file-list>
-        <welcome-file>login.html</welcome-file>
+        <welcome-file>login.jsp</welcome-file>
     </welcome-file-list>
 <resource-ref>
     <description>Email Resource</description>
