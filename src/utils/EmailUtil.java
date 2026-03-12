@@ -8,7 +8,7 @@ import java.nio.charset.StandardCharsets;
 public class EmailUtil {
     public static void sendOTP(String toEmail, String otp) throws Exception {
         // 1. Setup the API URL and your Key
-        String apiKey = "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";
+        String apiKey = DBConnection.getBrevoApiKey();
         URL url = new URL("https://api.brevo.com/v3/smtp/email");
         
         // 2. Open Connection
