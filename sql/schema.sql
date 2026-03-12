@@ -136,3 +136,5 @@ CREATE TABLE reward_types (
     icon VARCHAR(20) DEFAULT '⭐',
     is_positive BOOLEAN DEFAULT TRUE
 );
+INSERT INTO users (username, password, role, full_name, must_change_password) 
+VALUES ('root_admin', 'your_secure_password', 'platform_root', 'System Root', false);
