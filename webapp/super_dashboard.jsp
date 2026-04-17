@@ -66,7 +66,7 @@
                                     <form action="superAdminAction" method="POST" onsubmit="return confirm('DELETE SCHOOL? This wipes all data.')">
                                         <input type="hidden" name="action" value="deleteSchool">
                                         <input type="hidden" name="schoolId" value="<%= rs.getInt("school_id") %>">
-                                        <button type="submit" class="btn btn-del">🗑️ School</button>
+                                        <button type="submit" class="btn btn-del">🗑️ Delete</button>
                                     </form>
                                     <% if (adminName != null) { %>
                                     <form action="superAdminAction" method="POST" onsubmit="return confirm('Remove this Admin?')">
