@@ -170,3 +170,18 @@ INSERT INTO reward_types (name, amount, icon, is_positive) VALUES
 ('On Task', 2.00, '🎯', TRUE),
 ('Participating', 3.00, '✋', TRUE),
 ('Disrupting', -5.00, '🤫', FALSE);
+
+-- Add the last_reset_date column to track daily refreshes
+ALTER TABLE teacher_allowance 
+ADD COLUMN last_reset_date DATE DEFAULT CURRENT_DATE;
+
+-- Optional: If you want to ensure existing teachers have a starting date
+UPDATE teacher_allowance SET last_reset_date = CURRENT_DATE WHERE last_reset_date IS NULL;
+
+-- Add the column to decide if an item needs manual teacher approval
+ALTER TABLE marketplace_items 
+ADD COLUMN requires_approval BOOLEAN DEFAULT TRUE;
+
+-- Update existing items to default to 'True' (Manual Approval) 
+-- so your current workflow doesn't break
+UPDATE marketplace_items SET requires_approval = TRUE WHERE requires_approval IS NULL;
