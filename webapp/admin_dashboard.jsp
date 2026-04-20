@@ -4,7 +4,7 @@
 <html>
 <head>
     <title>School Admin Hub - VCES</title>
-    <link rel="stylesheet" href="${pageContext.request.contextPath}/css/admin_dashboard.css">
+    <link rel="stylesheet" href="${pageContext.request.contextPath}/css/admin_dashboard.css?v=2">
     <style>
         /* Essential inline styles for dynamic components */
         .notif-badge { position: absolute; top: -5px; right: -5px; background: #ef4444; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px; font-weight: bold; border: 2px solid white; }
